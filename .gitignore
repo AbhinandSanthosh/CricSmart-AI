@@ -1,0 +1,21 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+# AI model files
+yolov8*.pt
+
+# Video files
+*.mp4
+
+# Generated outputs
+output.mp4
+temp_video.mp4
+
+.streamlit/secrets.toml
+secrets.toml
