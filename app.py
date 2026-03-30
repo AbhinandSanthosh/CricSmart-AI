@@ -16,6 +16,22 @@ from analysis_engine import analyze_ball_tracking, calculate_speed
 from core.auth import authenticate_user, create_user, get_user_by_id, get_all_users
 from core.db import init_db, get_conn
 
+def get_team_flag(team):
+    flags = {
+        "India": "🇮🇳",
+        "Australia": "🇦🇺",
+        "England": "🇬🇧",
+        "Pakistan": "🇵🇰",
+        "Sri Lanka": "🇱🇰",
+        "New Zealand": "🇳🇿",
+        "South Africa": "🇿🇦"
+    }
+
+    for key in flags:
+        if key in team:
+            return flags[key]
+
+    return "🏏"
 # ── CONFIG ──────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="CricSmart AI", page_icon="🏏", layout="wide")
 
@@ -74,34 +90,68 @@ def render_performance_chart(chart_data):
 
 # ── LIVE SCORES & NEWS ────────────────────────────────────────────────────────
 def get_live_and_upcoming():
-    matches = {"live": [], "upcoming": []}
+    import requests
+    from bs4 import BeautifulSoup
+
+    matches = {"live": [], "upcoming": [], "completed": []}
+
     try:
-        from bs4 import BeautifulSoup
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get("https://www.espncricinfo.com/live-cricket-score", headers=headers, timeout=10)
+        url = "https://www.espncricinfo.com/live-cricket-score"
+        headers = {"User-Agent": "Mozilla/5.0"}
+
+        response = requests.get(url, headers=headers)
         soup = BeautifulSoup(response.text, "html.parser")
-        cards = soup.find_all('div', class_='ds-p-0')
-        for card in cards:
+
+        # ✅ FIXED SELECTOR
+        cards = soup.select("div.ds-border-b.ds-border-line")
+
+        # ✅ LOOP INSIDE TRY
+        for card in cards[:10]:
+
             try:
-                teams = [t.text for t in card.find_all('p', class_='ds-text-tight-m')]
-                scores = [s.text for s in card.find_all('strong', class_='ds-text-tight-m')]
-                status_tag = card.find('span', class_='ds-text-tight-s')
-                status = status_tag.text if status_tag else "Scheduled"
+                teams = card.select("p.ds-text-tight-m")
+                if len(teams) < 2:
+                    continue
+
+                title = f"{teams[0].text} vs {teams[1].text}"
+
+                score_tags = card.select("strong")
+                score = " | ".join([s.text for s in score_tags]) if score_tags else "N/A"
+
+                status_tag = card.select_one("span")
+                status_text = status_tag.text if status_tag else "Upcoming"
+
+                if "live" in status_text.lower():
+                    status = "LIVE 🔴"
+                elif "won" in status_text.lower():
+                    status = "COMPLETED ✅"
+                else:
+                    status = "UPCOMING ⏳"
+
                 match_data = {
-                    "title": f"{teams[0]} vs {teams[1]}" if len(teams) >= 2 else "Match Update",
-                    "score": " / ".join(scores) if scores else "Not Started",
-                    "status": status
+                    "title": title,
+                    "score": score,
+                    "status": status,
+                    "league": "ESPN",
+                    "date": "Live",
+                    "summary": status_text
                 }
-                if "Live" in status or "/" in match_data["score"] or "won" in status.lower():
+
+                if status == "LIVE 🔴":
                     matches["live"].append(match_data)
+                elif status == "COMPLETED ✅":
+                    matches["completed"].append(match_data)
                 else:
                     matches["upcoming"].append(match_data)
-            except:
-                continue
-    except Exception:
-        pass
-    return matches
 
+            except Exception:
+                continue
+
+    except Exception as e:
+        print("Error:", e)
+
+    return matches
+    
 def get_cricket_news():
     try:
         import feedparser
@@ -114,6 +164,9 @@ def get_cricket_news():
 
 def home_page():
     user = current_user()
+
+    from streamlit_autorefresh import st_autorefresh
+    st_autorefresh(interval=30000, key="refresh")  # refresh every 60 sec
 
     if not user:
         col1, col2, col3 = st.columns([1, 2, 1])
@@ -161,27 +214,109 @@ def home_page():
     st.markdown(f"## 🏏 Stadium Dashboard: Welcome, {user['username']}!")
     st.markdown("### 🔴 Live & Recent Scores")
     match_data = get_live_and_upcoming()
+    st.write(match_data)
+
 
     if match_data["live"]:
         live_cols = st.columns(min(len(match_data["live"]), 3))
-        for i, match in enumerate(match_data["live"][:3]):
+        important_matches = [
+    m for m in match_data["live"]
+    if any(x in m["title"] for x in ["India", "IPL", "RCB", "MI", "CSK"])]
+        display_matches = important_matches[:3] if important_matches else match_data["live"][:3]
+
+        for i, match in enumerate(display_matches):
             with live_cols[i]:
                 with st.container(border=True):
-                    st.write(f"**{match['title']}**")
-                    st.markdown(f"<h3 style='color:#FF4B4B; margin:0;'>{match['score']}</h3>", unsafe_allow_html=True)
-                    st.caption(f"🏁 {match['status']}")
+                    st.markdown(f"### 🏏 {match['title']}")
+
+                    st.markdown(f"<h2 style='color:#22C55E; margin:0;'>{match['score']}</h2>",unsafe_allow_html=True)
+
+                    st.caption(f"🏆 {match.get('league', 'League')}")
+                    
+                    st.caption(f"📅 {match.get('date', 'Time not available')}")
+                    
+                    st.markdown(f"<span style='color:#FF4B4B; font-weight:bold;'>{match['status']}</span>",unsafe_allow_html=True)
+               
     else:
         st.info("No matches currently live. Check upcoming fixtures below.")
+    
+    if match_data["live"]:
+        live_matches = match_data["live"][:3]
+        
+        live_cols = st.columns(len(live_matches))
 
+        for i, match in enumerate(live_matches):
+            with live_cols[i]:
+
+             team1 = match['title'].split(" vs ")[0]
+             team2 = match['title'].split(" vs ")[1]
+
+             flag1 = get_team_flag(team1)
+             flag2 = get_team_flag(team2)
+
+            with st.expander(f"{flag1} {team1} vs {flag2} {team2}"):
+                
+                st.markdown(f"""
+                <div style="
+                background: #111827;
+                padding: 15px;
+                border-radius: 12px;
+                border: 1px solid #1F2937;
+                margin-bottom: 10px;
+                ">
+                <h2 style="color:white;">{match['score']}</h2>
+
+                <p style="color:#9CA3AF;">🏆 {match['league']}</p>
+                <p style="color:#9CA3AF;">📅 {match['date']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # 🔴 LIVE animation
+                if "LIVE" in match["status"]:
+                    st.markdown("""
+                    <span style="color:red; font-weight:bold; animation: blinker 1s linear infinite;">
+                    🔴 LIVE
+                    </span>
+
+                    <style>
+                    @keyframes blinker {
+                      50% { opacity: 0; }
+                    }
+                    </style>
+                    """, unsafe_allow_html=True)
+
+                elif "COMPLETED" in match["status"]:
+                    st.success("Match Completed")
+
+                else:
+                    st.warning("Upcoming Match")
+
+                st.info(match.get("summary", "No summary available"))
+    else:
+        st.info("No matches currently live.")
+
+# ✅ 🔥 ADD THIS PART HERE (IMPORTANT)
+    if match_data.get("completed"):
+        st.markdown("### ✅ Recent Results")
+        
+        for m in match_data["completed"][:3]:
+            with st.container(border=True):
+                st.markdown(f"🏏 {m['title']}")
+                st.write(f"**Score:** {m['score']}")
+                st.caption(f"🏆 {m['league']}")
+                st.caption(f"📅 {m['date']}")
+                st.success(m["status"])
     st.divider()
     left_col, right_col = st.columns([1.5, 1])
 
     with left_col:
         st.markdown("### 📅 Upcoming & Domestic")
-        if match_data["upcoming"]:
+        if match_data.get("upcoming") and len(match_data["upcoming"]) > 0:
             for m in match_data["upcoming"][:5]:
                 with st.expander(f"🏏 {m['title']}"):
-                    st.write(f"**Status:** {m['status']}")
+                    st.markdown(f"🏆 {m.get('league', 'League')}")
+                    st.markdown(f"📅 {m.get('date', 'Time not available')}")
+                    st.markdown(f"**Status:** {m['status']}")
                     if any(x in m['title'].upper() for x in ["IPL", "T20", "WPL"]):
                         st.markdown("🏆 **Major League Event**")
         else:
@@ -683,7 +818,7 @@ def settings_page():
 def ball_tracking_page():
     st.markdown("<h1>🎯 Ball Tracking Lab</h1>", unsafe_allow_html=True)
     st.write("Upload a cricket video to analyze ball trajectory, bounce, and prediction.")
-    st.write("Bat Positions Sample:", bat_positions[:5] if 'bat_positions' in locals() else "No bat detected")
+    st.write("Upload video to analyze ball tracking")
 
     uploaded_video = st.file_uploader("Upload Cricket Video", type=["mp4", "mov", "avi"])
 
