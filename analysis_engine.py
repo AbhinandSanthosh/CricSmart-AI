@@ -237,4 +237,29 @@ def analyze_ball_tracking(video_path, roi_box, track_ball, advanced, fps, frame_
         'bat_impacts': len(bat_positions)
     }
 
-    return ball_trail, bounce_point, bat_impact, predicted_path, stats
+    return ball_trail, bounce_point, bat_impact, predicted_path, stats, shot
+    shot = classify_shot(ball_trail, bounce_point)
+
+def classify_shot(ball_trail, bounce_point):
+    """
+    Classify shot based on bounce position
+    """
+
+    if not ball_trail or not bounce_point:
+        return "Unknown Shot"
+
+    bx, by = bounce_point
+
+    # 🎯 Simple logic (you can tune later)
+
+    if by > 400:
+        return "🛡️ Yorker → Play Defensive Shot"
+
+    elif 250 < by <= 400:
+        return "🏏 Full Length → Play Drive (Cover / Straight)"
+
+    elif 150 < by <= 250:
+        return "⚖️ Good Length → Play Defensive / Straight Bat"
+
+    else:
+        return "🔥 Short Ball → Play Pull / Hook"

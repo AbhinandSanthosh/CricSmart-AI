@@ -90,68 +90,114 @@ def render_performance_chart(chart_data):
 
 # ── LIVE SCORES & NEWS ────────────────────────────────────────────────────────
 def get_live_and_upcoming():
-    import requests
-    from bs4 import BeautifulSoup
-
     matches = {"live": [], "upcoming": [], "completed": []}
 
     try:
-        url = "https://www.espncricinfo.com/live-cricket-score"
-        headers = {"User-Agent": "Mozilla/5.0"}
+        import requests
+        from datetime import datetime
 
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.text, "html.parser")
+        url = "https://api.cricapi.com/v1/currentMatches?apikey=1010c16b-a144-4550-96fd-7c8a353108ab&offset=0"
+        response = requests.get(url)
+        data = response.json()
 
-        # ✅ FIXED SELECTOR
-        cards = soup.select("div.ds-border-b.ds-border-line")
+        if data.get("status") == "success":
 
-        # ✅ LOOP INSIDE TRY
-        for card in cards[:10]:
+            for match in data.get("data", []):
 
-            try:
-                teams = card.select("p.ds-text-tight-m")
+                teams = match.get("teams", [])
                 if len(teams) < 2:
                     continue
 
-                title = f"{teams[0].text} vs {teams[1].text}"
+                title = f"{teams[0]} vs {teams[1]}"
+                league = match.get("series", "International Match")
 
-                score_tags = card.select("strong")
-                score = " | ".join([s.text for s in score_tags]) if score_tags else "N/A"
+                # ⏰ FORMAT TIME
+                raw_time = match.get("dateTimeGMT")
+                date_time = "Time not available"
 
-                status_tag = card.select_one("span")
-                status_text = status_tag.text if status_tag else "Upcoming"
+                if raw_time:
+                    try:
+                        dt = datetime.strptime(raw_time, "%Y-%m-%dT%H:%M:%S.%fZ")
+                        date_time = dt.strftime("%d %b %Y, %I:%M %p")
+                    except:
+                        try:
+                            dt = datetime.strptime(raw_time, "%Y-%m-%dT%H:%M:%SZ")
+                            date_time = dt.strftime("%d %b %Y, %I:%M %p")
+                        except:
+                            date_time = raw_time
 
-                if "live" in status_text.lower():
-                    status = "LIVE 🔴"
-                elif "won" in status_text.lower():
+                # 🏏 SCORE
+                score = "Match not started"
+                if match.get("score"):
+                    try:
+                        score = " | ".join([
+                            f"{i.get('r',0)}/{i.get('w',0)} ({i.get('o',0)})"
+                            for i in match["score"]
+                        ])
+                    except:
+                        score = "Live"
+
+                # 📊 STATUS
+                if match.get("matchEnded"):
+                    category = "completed"
                     status = "COMPLETED ✅"
+
+                elif match.get("matchStarted"):
+                    category = "live"
+                    status = "LIVE 🔴"
+
                 else:
+                    category = "upcoming"
                     status = "UPCOMING ⏳"
 
-                match_data = {
+                matches[category].append({
                     "title": title,
                     "score": score,
                     "status": status,
-                    "league": "ESPN",
-                    "date": "Live",
-                    "summary": status_text
-                }
+                    "league": league,
+                    "date": date_time,
+                    "summary": match.get("status", "No details available")
+                })
 
-                if status == "LIVE 🔴":
-                    matches["live"].append(match_data)
-                elif status == "COMPLETED ✅":
-                    matches["completed"].append(match_data)
-                else:
-                    matches["upcoming"].append(match_data)
 
-            except Exception:
-                continue
+                if not matches["live"] and not matches["upcoming"] and not matches["completed"]:
+                    matches["live"] = [
+                        {
+                            "title": "India vs England",
+                            "score": "245/6 (45) | 210/8 (50)",
+                            "status": "LIVE 🔴",
+                            "league": "ICC ODI Series",
+                            "date": "Today, 2:30 PM",
+                            "summary": "India is chasing 250. Strong middle-order performance."
+                            }
+                            ]
+
+                    matches["completed"] = [
+                        {
+                            "title": "Australia vs Pakistan",
+                            "score": "300/7 | 280/10",
+                            "status": "COMPLETED ✅",
+                            "league": "ICC World Cup",
+                            "date": "Yesterday",
+                            "summary": "Australia won by 20 runs."
+                            }
+                            ]
+                    
+                    matches["upcoming"] = [
+                        {
+                            "title": "India vs Australia",
+                            "score": "Match yet to start",
+                            "status": "UPCOMING ⏳",
+                            "league": "Border-Gavaskar Trophy",
+                            "date": "Tomorrow, 9:30 AM",
+                            "summary": "Highly anticipated test match."
+                            }]
 
     except Exception as e:
         print("Error:", e)
 
     return matches
-    
+
 def get_cricket_news():
     try:
         import feedparser
@@ -166,13 +212,15 @@ def home_page():
     user = current_user()
 
     from streamlit_autorefresh import st_autorefresh
-    st_autorefresh(interval=30000, key="refresh")  # refresh every 60 sec
+    st_autorefresh(interval=30000, key="refresh")
 
+    # 🔐 LOGIN PAGE
     if not user:
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             st.markdown("<h1 style='text-align: center; color: #22C55E;'>🏏 CricSmart AI</h1>", unsafe_allow_html=True)
             st.write("---")
+
             login_tab, signup_tab = st.tabs(["🔐 Login", "📝 Join Team"])
 
             with login_tab:
@@ -195,110 +243,73 @@ def home_page():
                     role = st.selectbox("Your Role", ["Batter", "Bowler", "All-rounder", "Wicketkeeper"])
                     lvl = st.selectbox("Skill Level", ["Beginner", "Intermediate", "Advanced"])
                     if st.form_submit_button("Create Profile", use_container_width=True):
-                        try:
-                            success = create_user(username=nu, password=np_, primary_role=role, skill_level=lvl)
-                            if success:
-                                st.success("✅ Profile created! Please login.")
-                            else:
-                                st.error("❌ Username already exists.")
-                        except Exception as e:
-                            st.error(f"Signup error: {e}")
+                        success = create_user(username=nu, password=np_, primary_role=role, skill_level=lvl)
+                        if success:
+                            st.success("✅ Profile created! Please login.")
+                        else:
+                            st.error("❌ Username already exists.")
         return
 
-    # Logged-in dashboard
-    if st.sidebar.button("🚪 Logout", key="logout_btn"):
+    # 🏠 DASHBOARD
+    if st.sidebar.button("🚪 Logout"):
         st.session_state.user_id = None
         st.session_state.username = None
         st.rerun()
 
     st.markdown(f"## 🏏 Stadium Dashboard: Welcome, {user['username']}!")
-    st.markdown("### 🔴 Live & Recent Scores")
+    st.markdown("### 🔴 Live Matches")
+
     match_data = get_live_and_upcoming()
-    st.write(match_data)
 
-
-    if match_data["live"]:
-        live_cols = st.columns(min(len(match_data["live"]), 3))
-        important_matches = [
-    m for m in match_data["live"]
-    if any(x in m["title"] for x in ["India", "IPL", "RCB", "MI", "CSK"])]
-        display_matches = important_matches[:3] if important_matches else match_data["live"][:3]
-
-        for i, match in enumerate(display_matches):
-            with live_cols[i]:
-                with st.container(border=True):
-                    st.markdown(f"### 🏏 {match['title']}")
-
-                    st.markdown(f"<h2 style='color:#22C55E; margin:0;'>{match['score']}</h2>",unsafe_allow_html=True)
-
-                    st.caption(f"🏆 {match.get('league', 'League')}")
-                    
-                    st.caption(f"📅 {match.get('date', 'Time not available')}")
-                    
-                    st.markdown(f"<span style='color:#FF4B4B; font-weight:bold;'>{match['status']}</span>",unsafe_allow_html=True)
-               
-    else:
-        st.info("No matches currently live. Check upcoming fixtures below.")
-    
+    # 🔴 LIVE MATCHES
     if match_data["live"]:
         live_matches = match_data["live"][:3]
-        
-        live_cols = st.columns(len(live_matches))
+        cols = st.columns(len(live_matches))
 
         for i, match in enumerate(live_matches):
-            with live_cols[i]:
+            with cols[i]:
+                team1, team2 = match['title'].split(" vs ")
 
-             team1 = match['title'].split(" vs ")[0]
-             team2 = match['title'].split(" vs ")[1]
+                flag1 = get_team_flag(team1)
+                flag2 = get_team_flag(team2)
 
-             flag1 = get_team_flag(team1)
-             flag2 = get_team_flag(team2)
+                with st.container(border=True):
+                    st.markdown(f"### {flag1} {team1} vs {flag2} {team2}")
+                    st.markdown(f"## {match['score']}")
 
-            with st.expander(f"{flag1} {team1} vs {flag2} {team2}"):
-                
-                st.markdown(f"""
-                <div style="
-                background: #111827;
-                padding: 15px;
-                border-radius: 12px;
-                border: 1px solid #1F2937;
-                margin-bottom: 10px;
-                ">
-                <h2 style="color:white;">{match['score']}</h2>
+                    st.caption(f"🏆 {match['league']}")
+                    st.caption(f"📅 {match['date']}")
 
-                <p style="color:#9CA3AF;">🏆 {match['league']}</p>
-                <p style="color:#9CA3AF;">📅 {match['date']}</p>
-                </div>
-                """, unsafe_allow_html=True)
+                    # 🔴 blinking LIVE
+                    if "LIVE" in match["status"]:
+                        st.markdown("""
+                        <span style="color:red; font-weight:bold; animation: blinker 1s linear infinite;">
+                        🔴 LIVE
+                        </span>
 
-            # 🔴 LIVE animation
-                if "LIVE" in match["status"]:
-                    st.markdown("""
-                    <span style="color:red; font-weight:bold; animation: blinker 1s linear infinite;">
-                    🔴 LIVE
-                    </span>
+                        <style>
+                        @keyframes blinker {
+                          50% { opacity: 0; }
+                        }
+                        </style>
+                        """, unsafe_allow_html=True)
 
-                    <style>
-                    @keyframes blinker {
-                      50% { opacity: 0; }
-                    }
-                    </style>
-                    """, unsafe_allow_html=True)
+                    elif "COMPLETED" in match["status"]:
+                        st.success("Completed")
 
-                elif "COMPLETED" in match["status"]:
-                    st.success("Match Completed")
+                    else:
+                        st.warning("Upcoming")
 
-                else:
-                    st.warning("Upcoming Match")
+                    with st.expander("📖 Match Summary"):
+                        st.write(match.get("summary", "No summary available"))
 
-                st.info(match.get("summary", "No summary available"))
     else:
         st.info("No matches currently live.")
 
-# ✅ 🔥 ADD THIS PART HERE (IMPORTANT)
-    if match_data.get("completed"):
+    # ✅ COMPLETED MATCHES
+    if match_data["completed"]:
         st.markdown("### ✅ Recent Results")
-        
+
         for m in match_data["completed"][:3]:
             with st.container(border=True):
                 st.markdown(f"🏏 {m['title']}")
@@ -306,37 +317,47 @@ def home_page():
                 st.caption(f"🏆 {m['league']}")
                 st.caption(f"📅 {m['date']}")
                 st.success(m["status"])
+
     st.divider()
+
+    # 🟡 UPCOMING + NEWS
     left_col, right_col = st.columns([1.5, 1])
 
     with left_col:
-        st.markdown("### 📅 Upcoming & Domestic")
-        if match_data.get("upcoming") and len(match_data["upcoming"]) > 0:
-            for m in match_data["upcoming"][:5]:
-                with st.expander(f"🏏 {m['title']}"):
-                    st.markdown(f"🏆 {m.get('league', 'League')}")
-                    st.markdown(f"📅 {m.get('date', 'Time not available')}")
-                    st.markdown(f"**Status:** {m['status']}")
-                    if any(x in m['title'].upper() for x in ["IPL", "T20", "WPL"]):
-                        st.markdown("🏆 **Major League Event**")
-        else:
-            st.write("No upcoming fixtures scheduled for today.")
+        st.markdown("### 📅 Upcoming Matches")
 
+        if match_data["upcoming"]:
+            for m in match_data["upcoming"]:
+                with st.container(border=True):
+                    st.markdown(f"### 🏏 {m['title']}")
+                    st.write(m["score"])
+
+                    st.caption(f"🏆 {m['league']}")
+                    st.caption(f"📅 {m['date']}")
+                    st.warning(m["status"])
+
+                    with st.expander("📖 View Details"):
+                        st.write(m.get("summary", "No details available"))
+
+        else:
+            st.info("No upcoming matches.")
+
+    # 📰 NEWS
     with right_col:
         st.markdown("### 📰 Latest Cricket News")
+
         news = get_cricket_news()
+
         if news:
             for item in news:
                 st.markdown(f"**[{item['title']}]({item['link']})**")
                 st.caption(f"📅 {item['date']}")
-                st.write("")
         else:
-            st.write("Unable to load news. Check connection.")
+            st.warning("Unable to load news.")
 
     st.divider()
     st.markdown("##### 🕒 Your Last Session")
     st.info("Complete a Biometric Lab session to see your stats here.")
-
 # ------------------------------------------------------------------------------
 def admin_page():
     st.markdown("<h1>👑 Admin Dashboard</h1>", unsafe_allow_html=True)
@@ -817,8 +838,7 @@ def settings_page():
 
 def ball_tracking_page():
     st.markdown("<h1>🎯 Ball Tracking Lab</h1>", unsafe_allow_html=True)
-    st.write("Upload a cricket video to analyze ball trajectory, bounce, and prediction.")
-    st.write("Upload video to analyze ball tracking")
+    st.write("Upload a cricket video to analyze ball trajectory, bounce, and shot recommendation.")
 
     uploaded_video = st.file_uploader("Upload Cricket Video", type=["mp4", "mov", "avi"])
 
@@ -830,11 +850,13 @@ def ball_tracking_page():
         st.video(video_path)
 
         if st.button("🚀 Analyze Ball Tracking", use_container_width=True):
+
             with st.spinner("Analyzing ball trajectory..."):
 
                 roi_box = (200, 150, 800, 400)
 
-                ball_trail, bounce_point, bat_impact, predicted_path, stats = analyze_ball_tracking(
+                # ✅ UPDATED (includes shot)
+                result = analyze_ball_tracking(
                     video_path,
                     roi_box=roi_box,
                     track_ball=True,
@@ -842,40 +864,58 @@ def ball_tracking_page():
                     fps=30
                 )
 
-
-                st.write("Ball detected frames:", len(ball_trail) if ball_trail else 0)
-                
-                if ball_trail:
-                    st.write("Ball Trail Sample:", ball_trail[:5])
+                # ✅ SAFE UNPACKING
+                if len(result) == 6:
+                    ball_trail, bounce_point, bat_impact, predicted_path, stats, shot = result
                 else:
-                    st.warning("No ball detected")
+                    ball_trail, bounce_point, bat_impact, predicted_path, stats = result
+                    shot = "Unknown"
+
+                # ---------------- BASIC INFO ----------------
+                st.subheader("📊 Detection Summary")
+
+                if ball_trail:
+                    st.success(f"Ball detected in {len(ball_trail)} frames")
+                    st.write("Sample:", ball_trail[:5])
+                else:
+                    st.error("❌ No ball detected — try a clearer video")
+                    return
 
                 # ---------------- RESULTS ----------------
                 st.subheader("📊 Analysis Results")
 
-                if ball_trail:
-                    st.success(f"Tracked Frames: {len(ball_trail)}")
-
                 if bounce_point:
-                    st.info(f"Bounce Point: {bounce_point}")
+                    st.info(f"📍 Bounce Point: {bounce_point}")
 
-                # Decision Logic
+                # 🧠 Decision Logic
                 if bat_impact:
-                    result = "🏏 Hit Bat"
-                    st.success(result)
-                elif predicted_path:
-                    result = "🟥 Would Hit Wickets"
-                    st.error(result)
-                else:
-                    result = "❌ Missed"
-                    st.warning(result)
+                    st.success("🏏 Ball Hit the Bat")
 
-                # Speed
-                if len(ball_trail) > 5:
-                    speed = calculate_speed(ball_trail[-5], ball_trail[-1], 5/30)
-                    st.metric("Ball Speed", f"{speed:.2f} km/h")
+                elif predicted_path:
+                    st.error("🟥 Ball would hit the stumps")
+
+                else:
+                    st.warning("❌ Ball missed everything")
+
+                # ⚡ Speed Calculation (SAFE)
+                if ball_trail and len(ball_trail) > 5:
+                    try:
+                        speed = calculate_speed(ball_trail[-5], ball_trail[-1], 5/30)
+                        st.metric("⚡ Ball Speed", f"{speed:.2f} km/h")
+                    except:
+                        st.warning("Speed calculation failed")
+
+                # 🎯 SHOT RECOMMENDATION (NEW FEATURE)
+                st.subheader("🏏 Shot Recommendation")
+
+                if shot:
+                    st.success(shot)
+                else:
+                    st.warning("Shot could not be determined")
 
                 # ---------------- VISUALIZATION ----------------
+                st.subheader("🎥 Visual Output")
+
                 cap = cv2.VideoCapture(video_path)
                 output_frames = []
                 i = 0
@@ -885,39 +925,47 @@ def ball_tracking_page():
                     if not ret:
                         break
 
-                    # Draw trajectory
+                    # 🟢 Draw trajectory
                     for j in range(1, min(len(ball_trail), i)):
-                        cv2.line(frame, ball_trail[j-1], ball_trail[j], (0,255,0), 2)
+                        cv2.line(frame, ball_trail[j-1], ball_trail[j], (0, 255, 0), 2)
 
-                    # Bounce point
+                    # 🔵 Bounce point
                     if bounce_point:
-                        cv2.circle(frame, bounce_point, 8, (255,0,0), -1)
+                        cv2.circle(frame, bounce_point, 8, (255, 0, 0), -1)
 
-                    # Predicted path
+                    # 🔴 Predicted path
                     if predicted_path:
                         for p in predicted_path:
-                            cv2.circle(frame, p, 3, (0,0,255), -1)
+                            cv2.circle(frame, p, 3, (0, 0, 255), -1)
 
                     output_frames.append(frame)
                     i += 1
 
                 cap.release()
 
-                # Save video
-                output_path = "output.mp4"
+                # 🎬 Save processed video
                 if output_frames:
+                    output_path = "output.mp4"
                     h, w, _ = output_frames[0].shape
-                    out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'mp4v'), 30, (w, h))
+
+                    out = cv2.VideoWriter(
+                        output_path,
+                        cv2.VideoWriter_fourcc(*'mp4v'),
+                        30,
+                        (w, h)
+                    )
 
                     for frame in output_frames:
                         out.write(frame)
 
                     out.release()
 
-                    st.subheader("🎥 Processed Output")
                     st.video(output_path)
 
-                st.json(stats)
+                # 📦 Raw stats
+                if stats:
+                    st.subheader("📦 Debug Stats")
+                    st.json(stats)
 # ── MAIN ROUTER ───────────────────────────────────────────────────────────────
 def main():
     if 'current_page' not in st.session_state:
@@ -929,26 +977,49 @@ def main():
     with st.sidebar:
         st.markdown("<h2 style='color: #22C55E; text-align: center;'>🏏 CricSmart AI</h2>", unsafe_allow_html=True)
         st.divider()
-        if st.button("🏠 Home",          use_container_width=True): st.session_state.current_page = "Home";     st.rerun()
-        if st.button("🔬 Biometric Lab", use_container_width=True): st.session_state.current_page = "Analysis"; st.rerun()
-        if st.button("🏏 Training Drills",use_container_width=True): st.session_state.current_page = "Drills";   st.rerun()
-        if st.button("💬 AI Mentor",     use_container_width=True): st.session_state.current_page = "Chat";     st.rerun()
-        if st.button("👤 My Profile",    use_container_width=True): st.session_state.current_page = "Profile";  st.rerun()
-        if st.button("⚙️ Settings",      use_container_width=True): st.session_state.current_page = "Settings"; st.rerun()
 
-        # Admin button (only visible to admin users)
+        if st.button(" Home", use_container_width=True):
+            st.session_state.current_page = "Home"
+            st.rerun()
+
+        if st.button(" Biometric Lab", use_container_width=True):
+            st.session_state.current_page = "Analysis"
+            st.rerun()
+
+        if st.button(" Training Drills", use_container_width=True):
+            st.session_state.current_page = "Drills"
+            st.rerun()
+
+        if st.button(" AI Mentor", use_container_width=True):
+            st.session_state.current_page = "Chat"
+            st.rerun()
+
+        if st.button(" My Profile", use_container_width=True):
+            st.session_state.current_page = "Profile"
+            st.rerun()
+
+        if st.button(" Settings", use_container_width=True):
+            st.session_state.current_page = "Settings"
+            st.rerun()
+
+        # ✅ FIX: Ball Tracking for ALL users
+        if st.button(" Ball Tracking", use_container_width=True):
+            st.session_state.current_page = "BallTracking"
+            st.rerun()
+
+        # 👑 Admin Panel ONLY for admin
         user = current_user()
         if user and user.get('is_admin', 0) == 1:
-            if st.button("👑 Admin Panel", use_container_width=True):
+            if st.button(" Admin Panel", use_container_width=True):
                 st.session_state.current_page = "Admin"
                 st.rerun()
 
-            if st.button("🎯 Ball Tracking", use_container_width=True):
-                st.session_state.current_page = "BallTracking"
-                st.rerun()
+    # ---------------- PAGE ROUTING ----------------
     page = st.session_state.current_page
+
     if page == "Home":
         home_page()
+
     elif page == "Analysis":
         if is_logged_in():
             stance_analysis_page()
@@ -956,16 +1027,22 @@ def main():
             st.warning("🔒 Please login to access the Biometric Lab.")
             st.session_state.current_page = "Home"
             st.rerun()
+
     elif page == "Drills":
         drills_page()
+
     elif page == "Chat":
         chat_page()
+
     elif page == "Profile":
         profile_page()
+
     elif page == "Settings":
         settings_page()
+
     elif page == "BallTracking":
         ball_tracking_page()
+
     elif page == "Admin":
         if current_user() and current_user().get('is_admin', 0) == 1:
             admin_page()
@@ -973,6 +1050,7 @@ def main():
             st.warning("🔒 Admin access only.")
             st.session_state.current_page = "Home"
             st.rerun()
-    
+
+
 if __name__ == "__main__":
     main()
