@@ -11,3 +11,5 @@ feedparser>=6.0.0
 streamlit-cropper>=0.2.1
 streamlit-autorefresh
 moviepy
+imageio
+imageio-ffmpeg
