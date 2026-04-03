@@ -13,3 +13,4 @@ streamlit-autorefresh
 moviepy
 imageio
 imageio-ffmpeg
+gdown

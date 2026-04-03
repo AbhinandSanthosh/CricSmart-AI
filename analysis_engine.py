@@ -1,10 +1,19 @@
 import cv2
 import numpy as np
+import os
+import gdown
 from ultralytics import YOLO
 
 # Load your custom trained YOLOv8 model
-model = YOLO('data/best.pt') 
+MODEL_PATH = "best.pt"
 
+def load_model():
+    if not os.path.exists(MODEL_PATH):
+        url = "https://drive.google.com/uc?id=11odraYb85iaNCbnfiBkRVL8OoH4T4FRW"
+        gdown.download(url, MODEL_PATH, quiet=False)
+    return YOLO(MODEL_PATH)
+
+model = load_model()
 # Physical constant for MCA project calibration
 STUMP_HEIGHT_METERS = 0.711 
 
