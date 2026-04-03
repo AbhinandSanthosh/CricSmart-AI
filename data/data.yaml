@@ -1,0 +1,7 @@
+path: ./cricket_ball_data  # Path relative to your CricSmartAI folder
+train: train/images
+val: valid/images       # Your folder is named 'valid', so we use that
+test: test/images
+
+nc: 1
+names: ['ball']

@@ -1,5 +1,6 @@
 .venv/
 __pycache__/
+**/__pycache__/
 *.py[cod]
 .pytest_cache/
 
@@ -7,15 +8,18 @@ __pycache__/
 Thumbs.db
 .idea/
 .vscode/
-# AI model files
-yolov8*.pt
+
+# AI model weights
+*.pt
 
 # Video files
 *.mp4
 
-# Generated outputs
-output.mp4
-temp_video.mp4
-
+# Secrets
 .streamlit/secrets.toml
 secrets.toml
+
+# Data files
+data/cricsmart.db
+data/pose_landmarker.task
+archive.zip
