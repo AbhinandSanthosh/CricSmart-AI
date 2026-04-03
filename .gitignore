@@ -1,26 +1,45 @@
+# Virtual environment
 .venv/
+venv/
+
+# Python cache
 __pycache__/
 **/__pycache__/
 *.py[cod]
 .pytest_cache/
 
+# OS files
 .DS_Store
 Thumbs.db
+
+# IDE files
 .idea/
 .vscode/
 
-# AI model weights
-*.pt
-
-# Video files
-*.mp4
-
-# Secrets
+# Streamlit secrets
 .streamlit/secrets.toml
 secrets.toml
 
-# Data files
-data/cricsmart.db
-data/pose_landmarker.task
-archive.zipcricket_ball_data/ 
-runs/ 
+# AI / ML model files
+*.pt
+*.h5
+*.pkl
+*.onnx
+
+# Large files
+*.zip
+*.mp4
+*.avi
+*.mov
+
+# Data directories
+data/
+cricket_ball_data/
+runs/
+
+# Logs
+*.log
+
+# Temporary files
+temp*
+output*

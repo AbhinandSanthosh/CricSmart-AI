@@ -1,6 +1,6 @@
 import streamlit as st
 import cv2
-from moviepy import VideoFileClip
+from moviepy.editor import VideoFileClip
 from analysis_engine import analyze_ball_tracking
 
 
