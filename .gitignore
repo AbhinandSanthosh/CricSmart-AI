@@ -22,4 +22,5 @@ secrets.toml
 # Data files
 data/cricsmart.db
 data/pose_landmarker.task
-archive.zip
+archive.zipcricket_ball_data/ 
+runs/ 
