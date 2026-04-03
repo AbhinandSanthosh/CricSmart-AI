@@ -1,10 +1,6 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Upload, Camera, RotateCcw, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
 import { analyzeStance, POSE_CONNECTIONS, type AnalysisResult, type Landmark } from "@/lib/pose-analysis";
 
@@ -22,7 +18,6 @@ export default function BiometricPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
 
-  // Cleanup camera on unmount
   useEffect(() => {
     return () => {
       if (stream) stream.getTracks().forEach((t) => t.stop());
@@ -76,11 +71,9 @@ export default function BiometricPage() {
 
     try {
       const { PoseLandmarker, FilesetResolver } = await import("@mediapipe/tasks-vision");
-
       const vision = await FilesetResolver.forVisionTasks(
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
       );
-
       const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
         baseOptions: {
           modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task",
@@ -90,7 +83,6 @@ export default function BiometricPage() {
         numPoses: 1,
       });
 
-      // Load image
       const img = new Image();
       img.crossOrigin = "anonymous";
       await new Promise<void>((resolve, reject) => {
@@ -100,7 +92,6 @@ export default function BiometricPage() {
       });
 
       const poseResult = poseLandmarker.detect(img);
-
       if (!poseResult.landmarks || poseResult.landmarks.length === 0) {
         setError("No person detected in the image. Please upload a clear full-body photo.");
         setAnalyzing(false);
@@ -110,7 +101,6 @@ export default function BiometricPage() {
       const lm = poseResult.landmarks[0];
       setLandmarks(lm);
 
-      // Draw skeleton on canvas
       const canvas = canvasRef.current;
       if (canvas) {
         canvas.width = img.width;
@@ -118,7 +108,7 @@ export default function BiometricPage() {
         const ctx = canvas.getContext("2d")!;
         ctx.drawImage(img, 0, 0);
 
-        // Draw connections
+        // Bones — white, 3px
         for (const [i, j] of POSE_CONNECTIONS) {
           const a = lm[i];
           const b = lm[j];
@@ -126,22 +116,19 @@ export default function BiometricPage() {
             ctx.beginPath();
             ctx.moveTo(a.x * img.width, a.y * img.height);
             ctx.lineTo(b.x * img.width, b.y * img.height);
-            ctx.strokeStyle = "#F59E0B";
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
             ctx.lineWidth = 3;
             ctx.stroke();
           }
         }
 
-        // Draw landmarks
+        // Joints — white dots
         for (const l of lm) {
           if (l.visibility > 0.5) {
             ctx.beginPath();
             ctx.arc(l.x * img.width, l.y * img.height, 5, 0, 2 * Math.PI);
-            ctx.fillStyle = "#F59E0B";
+            ctx.fillStyle = "#ffffff";
             ctx.fill();
-            ctx.strokeStyle = "#000";
-            ctx.lineWidth = 1;
-            ctx.stroke();
           }
         }
       }
@@ -169,175 +156,152 @@ export default function BiometricPage() {
   }, [stream]);
 
   const statusIcon = (status: string) => {
-    if (status === "good") return <CheckCircle className="w-4 h-4 text-green-400" />;
-    if (status === "warning") return <AlertTriangle className="w-4 h-4 text-yellow-400" />;
-    return <XCircle className="w-4 h-4 text-red-400" />;
+    if (status === "good") return <CheckCircle style={{ width: 16, height: 16, color: '#22c55e' }} />;
+    if (status === "warning") return <AlertTriangle style={{ width: 16, height: 16, color: '#f59e0b' }} />;
+    return <XCircle style={{ width: 16, height: 16, color: 'var(--cs-danger)' }} />;
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Biometric Lab</h1>
-        <p className="text-muted-foreground mt-1">
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 24 }}>
+      {/* Hero */}
+      <div style={{ gridColumn: 'span 12', padding: '20px 0' }}>
+        <div className="label-bracket" style={{ marginBottom: 12 }}>pose_detection_active</div>
+        <h1 style={{ fontSize: 48, background: 'linear-gradient(180deg, #ffffff 0%, #909ab0 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.03em' }}>
+          STANCE LAB
+        </h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: 16, marginTop: 8 }}>
           AI-powered batting stance analysis using pose detection
         </p>
       </div>
 
-      {/* Mode Selection */}
+      {/* Upload / Camera selection */}
       {!imageUrl && !stream && (
-        <div className="grid md:grid-cols-2 gap-4">
-          <Card
-            className="bg-card border-border hover:border-amber/40 transition-colors cursor-pointer"
-            onClick={() => { setMode("upload"); fileInputRef.current?.click(); }}
-          >
-            <CardContent className="p-8 flex flex-col items-center gap-4">
-              <Upload className="w-12 h-12 text-amber" />
-              <div className="text-center">
-                <div className="font-semibold">Upload Photo</div>
-                <div className="text-sm text-muted-foreground mt-1">
-                  JPG or PNG, full-body batting stance
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card
-            className="bg-card border-border hover:border-amber/40 transition-colors cursor-pointer"
-            onClick={() => { setMode("camera"); startCamera(); }}
-          >
-            <CardContent className="p-8 flex flex-col items-center gap-4">
-              <Camera className="w-12 h-12 text-blue-400" />
-              <div className="text-center">
-                <div className="font-semibold">Use Camera</div>
-                <div className="text-sm text-muted-foreground mt-1">
-                  Take a photo using your device camera
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleFileUpload}
-          />
-        </div>
+        <>
+          <div className="panel" style={{ gridColumn: 'span 6', padding: 48, cursor: 'pointer', textAlign: 'center' }}
+            onClick={() => { setMode("upload"); fileInputRef.current?.click(); }}>
+            <Upload style={{ width: 48, height: 48, color: 'var(--cs-accent)', margin: '0 auto 16px' }} />
+            <h3 style={{ fontSize: 20, marginBottom: 8 }}>UPLOAD PHOTO</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>JPG or PNG, full-body batting stance</p>
+          </div>
+          <div className="panel" style={{ gridColumn: 'span 6', padding: 48, cursor: 'pointer', textAlign: 'center' }}
+            onClick={() => { setMode("camera"); startCamera(); }}>
+            <Camera style={{ width: 48, height: 48, color: '#8b5cf6', margin: '0 auto 16px' }} />
+            <h3 style={{ fontSize: 20, marginBottom: 8 }}>USE CAMERA</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Take a photo using your device camera</p>
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileUpload} />
+        </>
       )}
 
       {/* Camera View */}
       {stream && !imageUrl && (
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 space-y-4">
-            <video ref={videoRef} className="w-full max-w-lg mx-auto rounded-lg" autoPlay playsInline muted />
-            <div className="flex gap-3 justify-center">
-              <Button onClick={capturePhoto} className="bg-amber hover:bg-amber-dark text-black">
-                <Camera className="w-4 h-4 mr-2" /> Capture
-              </Button>
-              <Button variant="outline" onClick={reset}>Cancel</Button>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="panel" style={{ gridColumn: 'span 12', padding: 24 }}>
+          <video ref={videoRef} style={{ width: '100%', maxWidth: 640, margin: '0 auto', borderRadius: 12, display: 'block' }} autoPlay playsInline muted />
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 20 }}>
+            <button onClick={capturePhoto} className="btn btn-primary" style={{ padding: '8px 8px 8px 24px', fontSize: 14 }}>
+              Capture
+              <div className="btn-icon-circle" style={{ width: 28, height: 28 }}>
+                <Camera style={{ width: 14, height: 14 }} />
+              </div>
+            </button>
+            <button className="btn btn-secondary" style={{ padding: '8px 24px', fontSize: 14 }} onClick={reset}>Cancel</button>
+          </div>
+        </div>
       )}
 
       {/* Image + Analysis */}
       {imageUrl && (
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Image / Canvas */}
-          <Card className="bg-card border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">
-                {landmarks ? "Pose Detection" : "Your Photo"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+        <>
+          <div className="panel" style={{ gridColumn: 'span 8', padding: 24 }}>
+            <div className="panel-header">
+              <span className="label-bracket">{landmarks ? 'pose_detected' : 'image_loaded'}</span>
+              <h2 className="panel-title">{landmarks ? 'POSE DETECTION' : 'YOUR PHOTO'}</h2>
+            </div>
+            <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: '#000', maxHeight: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {landmarks ? (
-                <canvas ref={canvasRef} className="w-full rounded-lg" />
+                <canvas ref={canvasRef} style={{ maxWidth: '100%', maxHeight: 400, display: 'block', borderRadius: 12, objectFit: 'contain' }} />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={imageUrl} alt="Stance" className="w-full rounded-lg" />
+                <img src={imageUrl} alt="Stance" style={{ maxWidth: '100%', maxHeight: 400, display: 'block', borderRadius: 12, objectFit: 'contain' }} />
               )}
-              <div className="flex gap-3 mt-4">
-                {!result && !analyzing && (
-                  <Button
-                    onClick={runAnalysis}
-                    className="bg-amber hover:bg-amber-dark text-black flex-1"
-                  >
-                    Analyze Stance
-                  </Button>
-                )}
-                <Button variant="outline" onClick={reset}>
-                  <RotateCcw className="w-4 h-4 mr-2" /> Reset
-                </Button>
-              </div>
-              {analyzing && (
-                <div className="mt-4 text-center">
-                  <div className="animate-pulse text-amber text-sm">
-                    Running pose detection...
+              {result && (
+                <div style={{ position: 'absolute', top: 16, left: 16, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(10px)', borderRadius: 12, padding: '12px 16px', border: '1px solid var(--cs-border)' }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontStyle: 'italic', fontSize: 28, color: result.score >= 70 ? '#22c55e' : result.score >= 50 ? '#f59e0b' : 'var(--cs-danger)' }}>
+                    {result.score}<span style={{ fontSize: 14, color: 'var(--text-muted)' }}>%</span>
                   </div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.1em', fontWeight: 600 }}>STANCE SCORE</div>
                 </div>
               )}
-              {error && (
-                <div className="mt-4 text-sm text-destructive bg-destructive/10 p-3 rounded-lg">
-                  {error}
-                </div>
+            </div>
+            <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+              {!result && !analyzing && (
+                <button onClick={runAnalysis} className="btn btn-primary" style={{ padding: '8px 8px 8px 24px', fontSize: 14, flex: 1 }}>
+                  Analyze Stance
+                  <div className="btn-icon-circle" style={{ width: 28, height: 28 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="square"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+                  </div>
+                </button>
               )}
-            </CardContent>
-          </Card>
+              <button className="btn btn-secondary" style={{ padding: '8px 24px', fontSize: 14 }} onClick={reset}>
+                <RotateCcw style={{ width: 14, height: 14, marginRight: 8, display: 'inline' }} />
+                Reset
+              </button>
+            </div>
+            {analyzing && (
+              <div style={{ marginTop: 16, textAlign: 'center' }}>
+                <span style={{ color: 'var(--cs-accent)', fontSize: 13, fontFamily: 'var(--font-display)', fontWeight: 800, fontStyle: 'italic', letterSpacing: '0.1em', animation: 'pulse 2s infinite' }}>
+                  RUNNING POSE DETECTION...
+                </span>
+              </div>
+            )}
+            {error && (
+              <div style={{ marginTop: 16, color: 'var(--cs-danger)', fontSize: 13, background: 'rgba(255,42,75,0.1)', padding: 12, borderRadius: 12 }}>
+                {error}
+              </div>
+            )}
+          </div>
 
           {/* Results */}
           {result && (
-            <div className="space-y-4">
-              <Card className="bg-card border-border">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Technical Score</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center mb-4">
-                    <div className={`text-5xl font-bold ${result.score >= 70 ? "text-green-400" : result.score >= 50 ? "text-yellow-400" : "text-red-400"}`}>
-                      {result.score}%
-                    </div>
-                    <Progress
-                      value={result.score}
-                      className="mt-3 h-2"
-                    />
-                    <p className="text-sm text-muted-foreground mt-3">{result.summary}</p>
+            <div style={{ gridColumn: 'span 4', display: 'flex', flexDirection: 'column', gap: 24 }}>
+              <div className="panel">
+                <div className="panel-header">
+                  <span className="label-bracket">score</span>
+                  <h2 className="panel-title">RESULT</h2>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div className="stat-val" style={{ fontSize: 64, color: result.score >= 70 ? '#22c55e' : result.score >= 50 ? '#f59e0b' : 'var(--cs-danger)' }}>
+                    {result.score}<span style={{ fontSize: 24, color: 'var(--text-muted)' }}>%</span>
                   </div>
-                </CardContent>
-              </Card>
+                  <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 12 }}>{result.summary}</p>
+                </div>
+              </div>
 
-              <Card className="bg-card border-border">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Detailed Analysis</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
+              <div className="panel" style={{ flex: 1 }}>
+                <div className="panel-header">
+                  <span className="label-bracket">metrics</span>
+                  <h2 className="panel-title">ANALYSIS</h2>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {result.metrics.map((m, i) => (
-                    <div key={i} className="p-3 rounded-lg bg-secondary/30 border border-border">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
+                    <div key={i} style={{ padding: 12, borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--cs-border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           {statusIcon(m.status)}
-                          <span className="text-sm font-medium">{m.name}</span>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-main)' }}>{m.name}</span>
                         </div>
-                        <Badge
-                          variant="outline"
-                          className={
-                            m.status === "good"
-                              ? "border-green-400/50 text-green-400"
-                              : m.status === "warning"
-                              ? "border-yellow-400/50 text-yellow-400"
-                              : "border-red-400/50 text-red-400"
-                          }
-                        >
+                        <span style={{ fontSize: 11, fontFamily: 'var(--font-display)', fontWeight: 800, fontStyle: 'italic', color: m.status === 'good' ? '#22c55e' : m.status === 'warning' ? '#f59e0b' : 'var(--cs-danger)' }}>
                           {m.value}
-                        </Badge>
+                        </span>
                       </div>
-                      <p className="text-xs text-muted-foreground">{m.feedback}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>{m.feedback}</p>
                     </div>
                   ))}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );

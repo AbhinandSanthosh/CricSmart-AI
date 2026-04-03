@@ -3,9 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/store/auth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Activity, Dumbbell, MessageCircle, Video, TrendingUp, Zap } from "lucide-react";
 
 interface Match {
   id: string;
@@ -40,169 +37,249 @@ export default function DashboardPage() {
   const liveMatches = matches.filter((m) => m.state === "live");
   const completedMatches = matches.filter((m) => m.state === "completed");
   const upcomingMatches = matches.filter((m) => m.state === "upcoming");
+  const topMatch = liveMatches[0] || completedMatches[0];
 
   return (
-    <div className="space-y-6">
-      {/* Welcome */}
-      <div>
-        <h1 className="text-2xl font-bold">
-          Welcome back, <span className="text-amber">{user?.username}</span>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 24 }}>
+
+      {/* ── Hero Section ── */}
+      <div style={{ gridColumn: 'span 12', padding: '60px 0 40px' }}>
+        <div className="label-bracket" style={{ marginBottom: 20, display: 'inline-block' }}>
+          welcome back, {user?.username}
+        </div>
+        <h1 className="hero-title">
+          YOUR CRICKET<br />TRAINING HUB
         </h1>
-        <p className="text-muted-foreground mt-1">
-          {user?.primary_role} &middot; {user?.skill_level} &middot; Ready to
-          train?
+        <p style={{ color: 'var(--text-muted)', fontSize: 16, lineHeight: 1.6, maxWidth: 540, marginBottom: 40 }}>
+          {user?.primary_role} &middot; {user?.skill_level} level. Track your biometrics, follow drills, and get AI coaching—all in one place.
         </p>
+        <Link href="/drills" className="btn btn-primary" style={{ padding: '8px 8px 8px 28px', fontSize: 18, textDecoration: 'none' }}>
+          Start Drill
+          <div className="btn-icon-circle" style={{ width: 40, height: 40 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="square"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+          </div>
+        </Link>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { href: "/biometric", icon: Activity, label: "Analyze Stance", color: "text-green-400" },
-          { href: "/drills", icon: Dumbbell, label: "Start Drill", color: "text-blue-400" },
-          { href: "/mentor", icon: MessageCircle, label: "AI Mentor", color: "text-purple-400" },
-          { href: "/ball-tracking", icon: Video, label: "Track Ball", color: "text-red-400" },
-        ].map((action) => (
-          <Link key={action.href} href={action.href}>
-            <Card className="bg-card border-border hover:border-amber/40 transition-colors cursor-pointer h-full">
-              <CardContent className="p-4 flex flex-col items-center gap-2 text-center">
-                <action.icon className={`w-8 h-8 ${action.color}`} />
-                <span className="text-sm font-medium">{action.label}</span>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
-
-      {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-3">
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 text-center">
-            <TrendingUp className="w-5 h-5 text-amber mx-auto mb-1" />
-            <div className="text-2xl font-bold">--</div>
-            <div className="text-xs text-muted-foreground">Sessions</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 text-center">
-            <Zap className="w-5 h-5 text-amber mx-auto mb-1" />
-            <div className="text-2xl font-bold">--</div>
-            <div className="text-xs text-muted-foreground">Avg Score</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 text-center">
-            <Activity className="w-5 h-5 text-amber mx-auto mb-1" />
-            <div className="text-2xl font-bold">--</div>
-            <div className="text-xs text-muted-foreground">Streak</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid md:grid-cols-3 gap-6">
-        {/* Live Matches */}
-        <div className="md:col-span-2 space-y-4">
-          {liveMatches.length > 0 && (
-            <Card className="bg-card border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                  Live Matches
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {liveMatches.slice(0, 3).map((m) => (
-                  <div
-                    key={m.id}
-                    className="p-3 rounded-lg bg-secondary/50 border border-border"
-                  >
-                    <div className="font-medium text-sm">{m.teams}</div>
-                    {m.score && (
-                      <div className="text-amber text-sm mt-1">{m.score}</div>
-                    )}
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {m.status}
-                    </div>
-                    <Badge variant="outline" className="mt-2 text-[10px]">
-                      {m.league}
-                    </Badge>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {completedMatches.length > 0 && (
-            <Card className="bg-card border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Recent Results</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {completedMatches.slice(0, 3).map((m) => (
-                  <div
-                    key={m.id}
-                    className="p-3 rounded-lg bg-secondary/30 border border-border"
-                  >
-                    <div className="font-medium text-sm">{m.teams}</div>
-                    {m.score && (
-                      <div className="text-sm text-muted-foreground mt-1">
-                        {m.score}
-                      </div>
-                    )}
-                    <div className="text-xs text-amber mt-1">{m.status}</div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {upcomingMatches.length > 0 && (
-            <Card className="bg-card border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Upcoming</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {upcomingMatches.slice(0, 3).map((m) => (
-                  <div
-                    key={m.id}
-                    className="flex justify-between items-center py-2 border-b border-border last:border-0"
-                  >
-                    <span className="text-sm">{m.teams}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {m.status}
-                    </span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+      {/* ── Stance Lab Widget (8 col) ── */}
+      <div className="panel" style={{ gridColumn: 'span 8', minHeight: 440, padding: 24 }}>
+        <div className="panel-header">
+          <span className="label-bracket">pose_detection_active</span>
+          <h2 className="panel-title">STANCE LAB</h2>
         </div>
-
-        {/* News Sidebar */}
-        <div>
-          <Card className="bg-card border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Cricket News</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {news.slice(0, 6).map((n, i) => (
-                <div key={i} className="pb-3 border-b border-border last:border-0 last:pb-0">
-                  <a
-                    href={n.link}
-                    className="text-sm font-medium hover:text-amber transition-colors"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {n.title}
-                  </a>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {n.published}
-                  </div>
-                </div>
+        <Link href="/biometric" style={{ textDecoration: 'none' }}>
+          <div className="video-container" style={{ minHeight: 320 }}>
+            <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-display)', fontWeight: 800, fontStyle: 'italic', letterSpacing: '0.1em', opacity: 0.3 }}>
+              CAMERA FEED
+            </span>
+            {/* Decorative pose skeleton */}
+            <div style={{ position: 'absolute', width: 200, height: 300 }}>
+              {/* Bones */}
+              <div style={{ position: 'absolute', background: 'rgba(255,255,255,0.9)', height: 3, borderRadius: 3, top: '30%', left: '30%', width: 80 }} />
+              <div style={{ position: 'absolute', background: 'rgba(255,255,255,0.9)', height: 3, borderRadius: 3, top: '30%', left: '30%', width: 60, transform: 'rotate(110deg)', transformOrigin: 'left center' }} />
+              <div style={{ position: 'absolute', background: 'rgba(255,255,255,0.9)', height: 3, borderRadius: 3, top: '50%', left: '20%', width: 50, transform: 'rotate(-45deg)', transformOrigin: 'left center' }} />
+              <div style={{ position: 'absolute', background: 'rgba(255,255,255,0.9)', height: 3, borderRadius: 3, top: '30%', left: '50%', width: 90, transform: 'rotate(90deg)', transformOrigin: 'left center' }} />
+              <div style={{ position: 'absolute', background: 'rgba(255,255,255,0.9)', height: 3, borderRadius: 3, top: '60%', left: '40%', width: 40 }} />
+              <div style={{ position: 'absolute', background: 'rgba(255,255,255,0.9)', height: 3, borderRadius: 3, top: '60%', left: '40%', width: 65, transform: 'rotate(115deg)', transformOrigin: 'left center' }} />
+              <div style={{ position: 'absolute', background: 'rgba(255,255,255,0.9)', height: 3, borderRadius: 3, top: '80%', left: '30%', width: 65, transform: 'rotate(100deg)', transformOrigin: 'left center' }} />
+              {/* Joints */}
+              {[
+                { top: '10%', left: '50%', size: 12 },
+                { top: '30%', left: '30%', size: 8 },
+                { top: '30%', left: '70%', size: 8 },
+                { top: '50%', left: '20%', size: 8 },
+                { top: '40%', left: '40%', size: 8 },
+                { top: '60%', left: '40%', size: 8 },
+                { top: '60%', left: '60%', size: 8 },
+                { top: '80%', left: '30%', size: 8 },
+                { top: '100%', left: '25%', size: 8 },
+              ].map((j, i) => (
+                <div key={i} style={{ position: 'absolute', width: j.size, height: j.size, background: '#fff', borderRadius: '50%', top: j.top, left: j.left, transform: 'translate(-50%, -50%)', zIndex: 2 }} />
               ))}
-            </CardContent>
-          </Card>
+            </div>
+            {/* Analysis overlay */}
+            <div className="analysis-overlay">
+              <div className="metric-val">--<span style={{ fontSize: 16 }}>%</span></div>
+              <div className="metric-label">STANCE SCORE</div>
+              <div style={{ height: 1, background: 'rgba(255,255,255,0.1)', margin: '12px 0' }} />
+              <div className="metric-val" style={{ color: 'var(--cs-accent)' }}>0<span style={{ fontSize: 16 }}>°</span></div>
+              <div className="metric-label">HEAD ALIGNMENT</div>
+            </div>
+          </div>
+        </Link>
+      </div>
+
+      {/* ── Live Match Widget (4 col) ── */}
+      <div className="panel" style={{ gridColumn: 'span 4' }}>
+        <div className="panel-header">
+          <span className="label-bracket">cricapi_feed</span>
+          <h2 className="panel-title">LIVE MATCH</h2>
+        </div>
+        {topMatch ? (
+          <div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {(() => {
+                const parts = topMatch.teams.split(' vs ');
+                const scores = topMatch.score ? topMatch.score.split(' | ') : [];
+                return (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <div>
+                        <div className="team-name">{parts[0]?.replace(/[^\w\s]/g, '').trim().substring(0, 3).toUpperCase() || 'TM1'}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>{topMatch.status}</div>
+                      </div>
+                      <div className="runs">{scores[0] || '--'}</div>
+                    </div>
+                    <div style={{ height: 1, background: 'var(--cs-border)' }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <div>
+                        <div className="team-name" style={{ color: 'var(--text-muted)' }}>{parts[1]?.replace(/[^\w\s]/g, '').trim().substring(0, 3).toUpperCase() || 'TM2'}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>
+                          {scores[1] ? '' : 'Yet to bat'}
+                        </div>
+                      </div>
+                      <div className="runs" style={{ color: scores[1] ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                        {scores[1] || '0/0'}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+            <div className="match-status">
+              {topMatch.state === 'live' && <div className="live-dot" />}
+              {topMatch.status}
+            </div>
+          </div>
+        ) : (
+          <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: '40px 0' }}>
+            No live matches right now
+          </div>
+        )}
+
+        {/* Additional matches below */}
+        {(completedMatches.length > 0 || upcomingMatches.length > 0) && (
+          <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--cs-border)' }}>
+            {completedMatches.slice(0, 2).map((m) => (
+              <div key={m.id} style={{ marginBottom: 12, fontSize: 12 }}>
+                <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{m.teams}</div>
+                <div style={{ color: 'var(--cs-accent)', fontSize: 11, marginTop: 2 }}>{m.status}</div>
+              </div>
+            ))}
+            {upcomingMatches.slice(0, 2).map((m) => (
+              <div key={m.id} style={{ marginBottom: 12, fontSize: 12 }}>
+                <div style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{m.teams}</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 2 }}>{m.status}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Stats Strip (12 col) ── */}
+      <div className="stats-strip" style={{ gridColumn: 'span 12' }}>
+        <div className="stat-box">
+          <div className="label-bracket">total_sessions</div>
+          <div className="stat-val">--<span style={{ fontSize: 18, color: 'var(--text-muted)' }}> </span></div>
+        </div>
+        <div className="stat-box">
+          <div className="label-bracket">avg_stance_score</div>
+          <div className="stat-val">--<span style={{ fontSize: 18, color: 'var(--text-muted)' }}> %</span></div>
+        </div>
+        <div className="stat-box">
+          <div className="label-bracket">drills_completed</div>
+          <div className="stat-val">--<span style={{ fontSize: 18, color: 'var(--text-muted)' }}> </span></div>
         </div>
       </div>
+
+      {/* ── Drills Widget (6 col) ── */}
+      <div className="panel" style={{ gridColumn: 'span 6' }}>
+        <div className="panel-header">
+          <span className="label-bracket">weekly_plan</span>
+          <h2 className="panel-title">ACADEMY DRILLS</h2>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <Link href="/drills" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div className="drill-item">
+              <div className="drill-info">
+                <h4>SHADOW BATTING</h4>
+                <p>Practice shots to build muscle memory</p>
+              </div>
+              <div className="drill-status">PENDING</div>
+            </div>
+          </Link>
+          <Link href="/drills" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div className="drill-item">
+              <div className="drill-info">
+                <h4>FRONT FOOT DEFENSE</h4>
+                <p>Get your defense solid against full-length</p>
+              </div>
+              <div className="drill-status">PENDING</div>
+            </div>
+          </Link>
+          <Link href="/drills" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div className="drill-item">
+              <div className="drill-info">
+                <h4>WALL REBOUND DRILL</h4>
+                <p>Hand-eye coordination against rebounds</p>
+              </div>
+              <div className="drill-status">PENDING</div>
+            </div>
+          </Link>
+        </div>
+      </div>
+
+      {/* ── Coach Chat Widget (6 col) ── */}
+      <div className="panel" style={{ gridColumn: 'span 6', height: 340 }}>
+        <div className="panel-header">
+          <span className="label-bracket">ai_mentor_v2</span>
+          <h2 className="panel-title">COACH CHAT</h2>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, paddingRight: 12, marginBottom: 16 }}>
+          <div className="msg msg-ai">
+            Hey! I&apos;m your CricEye AI Coach. Ask me anything about batting, bowling, fielding, or the mental game.
+          </div>
+        </div>
+        <Link href="/mentor" style={{ textDecoration: 'none' }}>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <input
+              type="text"
+              placeholder="Ask coach..."
+              className="chat-input-field"
+              readOnly
+              style={{ cursor: 'pointer' }}
+            />
+            <button className="btn-send" type="button">SEND</button>
+          </div>
+        </Link>
+      </div>
+
+      {/* ── News Section (12 col) ── */}
+      {news.length > 0 && (
+        <div className="panel" style={{ gridColumn: 'span 12' }}>
+          <div className="panel-header">
+            <span className="label-bracket">espn_rss_feed</span>
+            <h2 className="panel-title">CRICKET NEWS</h2>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
+            {news.slice(0, 6).map((n, i) => (
+              <div key={i}>
+                <a
+                  href={n.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--text-main)', textDecoration: 'none', fontSize: 14, fontWeight: 600, lineHeight: 1.4, transition: 'color 0.2s' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--cs-accent)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-main)')}
+                >
+                  {n.title}
+                </a>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>{n.published}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

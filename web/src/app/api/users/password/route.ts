@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { getDb } from "@/lib/db";
+import { ensureDb } from "@/lib/db";
 import bcrypt from "bcryptjs";
 
 export async function PUT(req: NextRequest) {
@@ -14,17 +14,22 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "All fields required" }, { status: 400 });
   }
 
-  const db = getDb();
-  const dbUser = db.prepare("SELECT password FROM users WHERE id = ?").get(user.id) as {
-    password: string;
-  };
+  const db = await ensureDb();
+  const result = await db.execute({
+    sql: "SELECT password FROM users WHERE id = ?",
+    args: [user.id],
+  });
+  const dbUser = result.rows[0] as unknown as { password: string };
 
   if (!bcrypt.compareSync(currentPassword, dbUser.password)) {
     return NextResponse.json({ error: "Current password is incorrect" }, { status: 400 });
   }
 
   const hash = bcrypt.hashSync(newPassword, 10);
-  db.prepare("UPDATE users SET password = ? WHERE id = ?").run(hash, user.id);
+  await db.execute({
+    sql: "UPDATE users SET password = ? WHERE id = ?",
+    args: [hash, user.id],
+  });
 
   return NextResponse.json({ ok: true });
 }

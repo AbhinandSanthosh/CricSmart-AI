@@ -3,10 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/store/auth";
 
 export default function LoginPage() {
@@ -38,66 +34,79 @@ export default function LoginPage() {
     }
   }
 
+  const inputStyle: React.CSSProperties = {
+    width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--cs-border-strong)',
+    borderRadius: 12, padding: '12px 16px', color: 'var(--text-main)', fontFamily: 'var(--font-ui)',
+    fontSize: 13, transition: 'all 0.3s',
+  };
+
   return (
-    <div className="flex items-center justify-center min-h-screen p-4">
-      <Card className="w-full max-w-md border-border bg-card">
-        <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-14 h-14 bg-amber rounded-xl flex items-center justify-center text-3xl">
-            🏏
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 16 }}>
+      <div style={{ width: '100%', maxWidth: 420 }}>
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <div className="avatar" style={{ width: 56, height: 56, fontSize: 20, margin: '0 auto 16px' }}>
+            CE
           </div>
-          <div>
-            <CardTitle className="text-2xl font-bold tracking-widest text-amber">
-              CRICSMART
-            </CardTitle>
-            <p className="text-xs tracking-[0.2em] text-muted-foreground mt-1">
-              AI PLATFORM
-            </p>
+          <h1 style={{ fontSize: 36, background: 'linear-gradient(180deg, #ffffff 0%, #909ab0 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.03em', fontFamily: 'var(--font-display)', fontWeight: 900, fontStyle: 'italic' }}>
+            CRIC<span style={{ color: 'var(--cs-accent)', WebkitTextFillColor: 'var(--cs-accent)' }}>EYE</span>
+          </h1>
+          <div className="label-bracket" style={{ marginTop: 8 }}>ai_platform</div>
+        </div>
+
+        {/* Card */}
+        <div className="panel" style={{ padding: 32 }}>
+          <div className="panel-header">
+            <span className="label-bracket">authentication</span>
+            <h2 className="panel-title">SIGN IN</h2>
           </div>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {error && (
-              <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-lg">
+              <div style={{ fontSize: 13, color: 'var(--cs-danger)', background: 'rgba(255,42,75,0.08)', padding: 12, borderRadius: 12 }}>
                 {error}
               </div>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
+            <div>
+              <div className="label-bracket" style={{ marginBottom: 6 }}>username</div>
+              <input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter username"
                 required
+                style={inputStyle}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
+            <div>
+              <div className="label-bracket" style={{ marginBottom: 6 }}>password</div>
+              <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter password"
                 required
+                style={inputStyle}
               />
             </div>
-            <Button
+            <button
               type="submit"
-              className="w-full bg-amber hover:bg-amber-dark text-black font-semibold"
               disabled={loading}
+              className="btn btn-primary"
+              style={{ padding: '8px 8px 8px 24px', fontSize: 14, width: '100%', opacity: loading ? 0.5 : 1 }}
             >
               {loading ? "Signing in..." : "Sign In"}
-            </Button>
-            <p className="text-center text-sm text-muted-foreground">
+              <div className="btn-icon-circle" style={{ width: 28, height: 28 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+              </div>
+            </button>
+            <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
               Don&apos;t have an account?{" "}
-              <Link href="/signup" className="text-amber hover:underline">
+              <Link href="/signup" style={{ color: 'var(--cs-accent)', textDecoration: 'none' }}>
                 Sign up
               </Link>
             </p>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

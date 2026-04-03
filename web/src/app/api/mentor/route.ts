@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fallbackMentor } from "@/lib/mentor-fallback";
 
-const SYSTEM_PROMPT = `You are CricSmart AI Coach, an expert cricket coach and analyst.
+const SYSTEM_PROMPT = `You are CricEye AI Coach, an expert cricket coach and analyst.
 Your tone is encouraging, patient, and supportive. You understand that cricket is as much a mental game as a technical one.
 You give concise, actionable advice on batting, bowling, fielding, fitness, and match strategy.
 Use cricket terminology naturally. When a player struggles, acknowledge their effort and provide a clear path forward.
@@ -22,7 +22,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Message required" }, { status: 400 });
     }
 
-    // Try Ollama first (free, local)
+    // Try OpenRouter API
+    const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
+    if (OPENROUTER_KEY) {
+      try {
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${OPENROUTER_KEY}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+            "X-Title": "CricEye AI Coach",
+          },
+          body: JSON.stringify({
+            model: process.env.OPENROUTER_MODEL || "liquid/lfm-2.5-1.2b-instruct:free",
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              ...(history || []).slice(-10),
+              { role: "user", content: message },
+            ],
+            max_tokens: 1024,
+          }),
+          signal: AbortSignal.timeout(60000),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const reply = data.choices?.[0]?.message?.content;
+          if (reply) {
+            return NextResponse.json({ reply, source: "openrouter" });
+          }
+        } else {
+          await res.text(); // consume body
+        }
+      } catch {
+        // OpenRouter failed, fall through
+      }
+    }
+
+    // Try Ollama (local, for development)
     try {
       const ollamaRes = await fetch("http://localhost:11434/api/chat", {
         method: "POST",

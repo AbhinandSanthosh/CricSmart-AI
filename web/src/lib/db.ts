@@ -1,22 +1,27 @@
-import Database from "better-sqlite3";
-import path from "path";
+import { createClient, type Client } from "@libsql/client";
 
-const DB_PATH = path.join(process.cwd(), "cricsmart.db");
+let _client: Client | null = null;
+let _initPromise: Promise<void> | null = null;
 
-let _db: Database.Database | null = null;
-
-export function getDb(): Database.Database {
-  if (!_db) {
-    _db = new Database(DB_PATH);
-    _db.pragma("journal_mode = WAL");
-    _db.pragma("foreign_keys = ON");
-    initDb(_db);
+export function getDb(): Client {
+  if (!_client) {
+    _client = createClient({
+      url: process.env.TURSO_DATABASE_URL || "file:cricsmart.db",
+      authToken: process.env.TURSO_AUTH_TOKEN,
+    });
+    _initPromise = initDb(_client);
   }
-  return _db;
+  return _client;
 }
 
-function initDb(db: Database.Database) {
-  db.exec(`
+export async function ensureDb(): Promise<Client> {
+  const client = getDb();
+  if (_initPromise) await _initPromise;
+  return client;
+}
+
+async function initDb(client: Client) {
+  await client.executeMultiple(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL COLLATE NOCASE,
@@ -58,14 +63,17 @@ function initDb(db: Database.Database) {
   `);
 
   // Seed admin user if not exists
-  const admin = db
-    .prepare("SELECT id FROM users WHERE username = ?")
-    .get("admin");
-  if (!admin) {
+  const admin = await client.execute({
+    sql: "SELECT id FROM users WHERE username = ?",
+    args: ["admin"],
+  });
+  if (admin.rows.length === 0) {
     const bcrypt = require("bcryptjs");
     const hash = bcrypt.hashSync("admin123", 10);
-    db.prepare(
-      "INSERT INTO users (username, password, is_admin, primary_role, skill_level) VALUES (?, ?, 1, 'Batter', 'Advanced')"
-    ).run("admin", hash);
+    await client.execute({
+      sql: "INSERT INTO users (username, password, is_admin, primary_role, skill_level) VALUES (?, ?, 1, 'Batter', 'Advanced')",
+      args: ["admin", hash],
+    });
   }
+  _initPromise = null;
 }

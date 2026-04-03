@@ -1,12 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Bot, User, Sparkles } from "lucide-react";
+import { Bot, User } from "lucide-react";
 
 interface Message {
   role: "user" | "assistant";
@@ -27,7 +22,7 @@ export default function MentorPage() {
     {
       role: "assistant",
       content:
-        "Hey! I'm your CricSmart AI Coach. Ask me anything about batting, bowling, fielding, fitness, or the mental game. I'm here to help you improve!",
+        "Hey! I'm your CricEye AI Coach. Ask me anything about batting, bowling, fielding, fitness, or the mental game. I'm here to help you improve!",
     },
   ]);
   const [input, setInput] = useState("");
@@ -52,27 +47,17 @@ export default function MentorPage() {
       const res = await fetch("/api/mentor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: msg,
-          history: messages.slice(-10),
-        }),
+        body: JSON.stringify({ message: msg, history: messages.slice(-10) }),
       });
-
       const data = await res.json();
       if (data.reply) {
         setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
         setSource(data.source || "");
       } else {
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: "Sorry, I couldn't process that. Try again!" },
-        ]);
+        setMessages((prev) => [...prev, { role: "assistant", content: "Sorry, I couldn't process that. Try again!" }]);
       }
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "Connection error. Please try again." },
-      ]);
+      setMessages((prev) => [...prev, { role: "assistant", content: "Connection error. Please try again." }]);
     } finally {
       setLoading(false);
     }
@@ -86,79 +71,75 @@ export default function MentorPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)]">
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          AI Mentor <Sparkles className="w-5 h-5 text-amber" />
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Your personal cricket coach{" "}
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 24 }}>
+      {/* Hero */}
+      <div style={{ gridColumn: 'span 12', padding: '20px 0' }}>
+        <div className="label-bracket" style={{ marginBottom: 12 }}>
+          ai_mentor_v2
           {source && (
-            <Badge variant="outline" className="text-[10px] ml-1">
-              {source === "ollama" ? "Ollama AI" : "Smart Fallback"}
-            </Badge>
+            <span style={{ marginLeft: 12, opacity: 0.6 }}>
+              {source === "ollama" ? "• ollama_ai" : "• smart_fallback"}
+            </span>
           )}
-        </p>
+        </div>
+        <h1 style={{ fontSize: 48, background: 'linear-gradient(180deg, #ffffff 0%, #909ab0 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.03em' }}>
+          COACH CHAT
+        </h1>
       </div>
 
-      {/* Chat Area */}
-      <Card className="bg-card border-border flex-1 flex flex-col overflow-hidden">
-        <ScrollArea className="flex-1 p-4">
-          <div className="space-y-4">
-            {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                {msg.role === "assistant" && (
-                  <div className="w-8 h-8 rounded-lg bg-amber/20 flex items-center justify-center flex-shrink-0">
-                    <Bot className="w-4 h-4 text-amber" />
-                  </div>
-                )}
-                <div
-                  className={`max-w-[80%] rounded-lg p-3 text-sm whitespace-pre-wrap ${
-                    msg.role === "user"
-                      ? "bg-amber/20 text-foreground"
-                      : "bg-secondary/50 text-foreground"
-                  }`}
-                >
-                  {msg.content}
+      {/* Chat Panel */}
+      <div className="panel" style={{ gridColumn: 'span 12', height: 'calc(100vh - 320px)', display: 'flex', flexDirection: 'column' }}>
+        <div className="panel-header">
+          <span className="label-bracket">conversation</span>
+          <h2 className="panel-title">AI COACH</h2>
+        </div>
+
+        {/* Messages */}
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, paddingRight: 12, marginBottom: 16 }}>
+          {messages.map((msg, i) => (
+            <div key={i} style={{ display: 'flex', gap: 12, justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+              {msg.role === "assistant" && (
+                <div style={{ width: 32, height: 32, borderRadius: 12, background: 'rgba(0,212,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Bot style={{ width: 16, height: 16, color: 'var(--cs-accent)' }} />
                 </div>
-                {msg.role === "user" && (
-                  <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0">
-                    <User className="w-4 h-4" />
-                  </div>
-                )}
+              )}
+              <div className={msg.role === "user" ? "msg msg-user" : "msg msg-ai"} style={{ whiteSpace: 'pre-wrap' }}>
+                {msg.content}
               </div>
-            ))}
-            {loading && (
-              <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-lg bg-amber/20 flex items-center justify-center">
-                  <Bot className="w-4 h-4 text-amber" />
+              {msg.role === "user" && (
+                <div className="avatar" style={{ width: 32, height: 32, fontSize: 12, flexShrink: 0 }}>
+                  <User style={{ width: 14, height: 14, color: '#000' }} />
                 </div>
-                <div className="bg-secondary/50 rounded-lg p-3">
-                  <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-amber/60 rounded-full animate-bounce" />
-                    <span className="w-2 h-2 bg-amber/60 rounded-full animate-bounce [animation-delay:0.1s]" />
-                    <span className="w-2 h-2 bg-amber/60 rounded-full animate-bounce [animation-delay:0.2s]" />
-                  </div>
-                </div>
+              )}
+            </div>
+          ))}
+          {loading && (
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 12, background: 'rgba(0,212,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Bot style={{ width: 16, height: 16, color: 'var(--cs-accent)' }} />
               </div>
-            )}
-            <div ref={scrollRef} />
-          </div>
-        </ScrollArea>
+              <div className="msg msg-ai" style={{ display: 'flex', gap: 4, padding: '12px 16px' }}>
+                <span style={{ width: 6, height: 6, background: 'var(--cs-accent)', borderRadius: '50%', opacity: 0.4, animation: 'pulse 1.5s infinite' }} />
+                <span style={{ width: 6, height: 6, background: 'var(--cs-accent)', borderRadius: '50%', opacity: 0.4, animation: 'pulse 1.5s infinite 0.15s' }} />
+                <span style={{ width: 6, height: 6, background: 'var(--cs-accent)', borderRadius: '50%', opacity: 0.4, animation: 'pulse 1.5s infinite 0.3s' }} />
+              </div>
+            </div>
+          )}
+          <div ref={scrollRef} />
+        </div>
 
         {/* Quick Prompts */}
         {messages.length <= 1 && (
-          <div className="px-4 pb-2">
-            <p className="text-xs text-muted-foreground mb-2">Quick questions:</p>
-            <div className="flex flex-wrap gap-2">
+          <div style={{ marginBottom: 16 }}>
+            <div className="label-bracket" style={{ marginBottom: 8 }}>quick_questions</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {QUICK_PROMPTS.map((q) => (
                 <button
                   key={q}
                   onClick={() => sendMessage(q)}
-                  className="text-xs px-3 py-1.5 rounded-full border border-border hover:border-amber/50 text-muted-foreground hover:text-amber transition-colors"
+                  style={{ fontSize: 12, padding: '8px 16px', borderRadius: 'var(--radius-pill)', border: '1px solid var(--cs-border-strong)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'var(--font-ui)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--cs-accent)'; e.currentTarget.style.color = 'var(--cs-accent)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--cs-border-strong)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
                 >
                   {q}
                 </button>
@@ -168,26 +149,19 @@ export default function MentorPage() {
         )}
 
         {/* Input */}
-        <div className="p-4 border-t border-border">
-          <div className="flex gap-2">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask about batting, bowling, fielding, fitness..."
-              className="min-h-[44px] max-h-[120px] resize-none"
-              rows={1}
-            />
-            <Button
-              onClick={() => sendMessage()}
-              disabled={!input.trim() || loading}
-              className="bg-amber hover:bg-amber-dark text-black px-3"
-            >
-              <Send className="w-4 h-4" />
-            </Button>
-          </div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask coach..."
+            className="chat-input-field"
+          />
+          <button onClick={() => sendMessage()} disabled={!input.trim() || loading} className="btn-send" style={{ opacity: (!input.trim() || loading) ? 0.3 : 1 }}>
+            SEND
+          </button>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

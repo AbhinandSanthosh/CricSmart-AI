@@ -22,7 +22,7 @@ export default function RootPage() {
   return (
     <div className="flex items-center justify-center min-h-screen">
       <div className="animate-pulse text-amber font-bold text-2xl tracking-widest">
-        CRICSMART AI
+        CRICEYE AI
       </div>
     </div>
   );

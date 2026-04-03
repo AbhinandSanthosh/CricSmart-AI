@@ -2,106 +2,94 @@
 
 import { useAuth } from "@/store/auth";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Activity, Dumbbell, MessageCircle, User, Calendar } from "lucide-react";
+import { Activity, Dumbbell, MessageCircle, Calendar } from "lucide-react";
 
 export default function ProfilePage() {
   const { user } = useAuth();
-
   if (!user) return null;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">My Profile</h1>
-        <p className="text-muted-foreground mt-1">Your cricket training dashboard</p>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 24 }}>
+      <div style={{ gridColumn: 'span 12', padding: '20px 0' }}>
+        <div className="label-bracket" style={{ marginBottom: 12 }}>player_profile</div>
+        <h1 style={{ fontSize: 48, background: 'linear-gradient(180deg, #ffffff 0%, #909ab0 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.03em' }}>
+          PROFILE
+        </h1>
       </div>
 
       {/* User Card */}
-      <Card className="bg-card border-border">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-xl bg-amber/20 flex items-center justify-center">
-              <User className="w-8 h-8 text-amber" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold">{user.username}</h2>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge className="bg-amber/20 text-amber border-amber/30">
-                  {user.primary_role}
-                </Badge>
-                <Badge variant="outline">{user.skill_level}</Badge>
-              </div>
-              {user.created_at && (
-                <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                  <Calendar className="w-3 h-3" />
-                  Joined {new Date(user.created_at).toLocaleDateString()}
-                </div>
-              )}
-            </div>
+      <div className="panel" style={{ gridColumn: 'span 12' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          <div className="avatar" style={{ width: 64, height: 64, fontSize: 24 }}>
+            {user.username?.charAt(0).toUpperCase()}
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <h2 style={{ fontSize: 28, marginBottom: 4 }}>{user.username?.toUpperCase()}</h2>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <span className="label-bracket">{user.primary_role}</span>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{user.skill_level}</span>
+            </div>
+            {user.created_at && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
+                <Calendar style={{ width: 12, height: 12 }} />
+                Joined {new Date(user.created_at).toLocaleDateString()}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-amber">--</div>
-            <div className="text-xs text-muted-foreground mt-1">Total Sessions</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-400">--</div>
-            <div className="text-xs text-muted-foreground mt-1">Avg Stance Score</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-blue-400">--</div>
-            <div className="text-xs text-muted-foreground mt-1">Drills Done</div>
-          </CardContent>
-        </Card>
+      <div className="stats-strip" style={{ gridColumn: 'span 12' }}>
+        <div className="stat-box">
+          <div className="label-bracket">total_sessions</div>
+          <div className="stat-val">--</div>
+        </div>
+        <div className="stat-box">
+          <div className="label-bracket">avg_stance_score</div>
+          <div className="stat-val">--<span style={{ fontSize: 18, color: 'var(--text-muted)' }}> %</span></div>
+        </div>
+        <div className="stat-box">
+          <div className="label-bracket">drills_done</div>
+          <div className="stat-val">--</div>
+        </div>
       </div>
 
       {/* Quick Actions */}
-      <Card className="bg-card border-border">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
+      <div className="panel" style={{ gridColumn: 'span 6' }}>
+        <div className="panel-header">
+          <span className="label-bracket">actions</span>
+          <h2 className="panel-title">QUICK START</h2>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {[
-            { href: "/biometric", icon: Activity, label: "Stance Checkup", desc: "Analyze your batting stance" },
-            { href: "/drills", icon: Dumbbell, label: "Footwork Practice", desc: "Start a training drill" },
-            { href: "/mentor", icon: MessageCircle, label: "Chat with Mentor", desc: "Get coaching advice" },
+            { href: "/biometric", icon: Activity, label: "STANCE CHECKUP", desc: "Analyze your batting stance" },
+            { href: "/drills", icon: Dumbbell, label: "FOOTWORK PRACTICE", desc: "Start a training drill" },
+            { href: "/mentor", icon: MessageCircle, label: "CHAT WITH COACH", desc: "Get coaching advice" },
           ].map((action) => (
-            <Link key={action.href} href={action.href}>
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30 border border-border hover:border-amber/40 transition-colors">
-                <action.icon className="w-5 h-5 text-amber" />
-                <div>
-                  <div className="text-sm font-medium">{action.label}</div>
-                  <div className="text-xs text-muted-foreground">{action.desc}</div>
+            <Link key={action.href} href={action.href} style={{ textDecoration: 'none', color: 'inherit' }}>
+              <div className="drill-item">
+                <div className="drill-info">
+                  <h4>{action.label}</h4>
+                  <p>{action.desc}</p>
                 </div>
+                <action.icon style={{ width: 20, height: 20, color: 'var(--cs-accent)' }} />
               </div>
             </Link>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Recent Activity Placeholder */}
-      <Card className="bg-card border-border">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Recent Activity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground text-sm">
-            No activity yet. Start a session to see your progress here!
-          </div>
-        </CardContent>
-      </Card>
+      {/* Recent Activity */}
+      <div className="panel" style={{ gridColumn: 'span 6' }}>
+        <div className="panel-header">
+          <span className="label-bracket">activity_log</span>
+          <h2 className="panel-title">RECENT</h2>
+        </div>
+        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontSize: 13 }}>
+          No activity yet. Start a session to see your progress here!
+        </div>
+      </div>
     </div>
   );
 }

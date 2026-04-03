@@ -1,4 +1,4 @@
-import { getDb } from "./db";
+import { ensureDb } from "./db";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { cookies } from "next/headers";
@@ -15,6 +15,20 @@ export interface User {
   created_at: string;
 }
 
+function rowToUser(row: Record<string, unknown>): User {
+  return {
+    id: row.id as number,
+    username: row.username as string,
+    email: (row.email as string) || "",
+    phone: (row.phone as string) || "",
+    primary_role: (row.primary_role as string) || "Batter",
+    bowling_style: (row.bowling_style as string) || "",
+    skill_level: (row.skill_level as string) || "Beginner",
+    is_admin: (row.is_admin as number) || 0,
+    created_at: (row.created_at as string) || "",
+  };
+}
+
 export async function createUser(
   username: string,
   password: string,
@@ -22,48 +36,53 @@ export async function createUser(
   skillLevel: string,
   bowlingStyle?: string
 ): Promise<User> {
-  const db = getDb();
-  const existing = db
-    .prepare("SELECT id FROM users WHERE username = ?")
-    .get(username);
-  if (existing) throw new Error("Username already taken");
+  const db = await ensureDb();
+  const existing = await db.execute({
+    sql: "SELECT id FROM users WHERE username = ?",
+    args: [username],
+  });
+  if (existing.rows.length > 0) throw new Error("Username already taken");
 
   const hash = bcrypt.hashSync(password, 10);
-  const result = db
-    .prepare(
-      "INSERT INTO users (username, password, primary_role, bowling_style, skill_level) VALUES (?, ?, ?, ?, ?)"
-    )
-    .run(username, hash, role, bowlingStyle || "", skillLevel);
+  const result = await db.execute({
+    sql: "INSERT INTO users (username, password, primary_role, bowling_style, skill_level) VALUES (?, ?, ?, ?, ?)",
+    args: [username, hash, role, bowlingStyle || "", skillLevel],
+  });
 
-  return db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid) as User;
+  const newUser = await db.execute({
+    sql: "SELECT * FROM users WHERE id = ?",
+    args: [result.lastInsertRowid!],
+  });
+  return rowToUser(newUser.rows[0] as unknown as Record<string, unknown>);
 }
 
 export async function authenticateUser(
   username: string,
   password: string
 ): Promise<User | null> {
-  const db = getDb();
-  const user = db
-    .prepare("SELECT * FROM users WHERE username = ?")
-    .get(username) as (User & { password: string }) | undefined;
-  if (!user) return null;
-  if (!bcrypt.compareSync(password, user.password)) return null;
-  return user;
+  const db = await ensureDb();
+  const result = await db.execute({
+    sql: "SELECT * FROM users WHERE username = ?",
+    args: [username],
+  });
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0] as unknown as Record<string, unknown>;
+  if (!bcrypt.compareSync(password, row.password as string)) return null;
+  return rowToUser(row);
 }
 
 export async function createSession(userId: number): Promise<string> {
-  const db = getDb();
+  const db = await ensureDb();
   const sessionId = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-  db.prepare("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)").run(
-    sessionId,
-    userId,
-    expiresAt
-  );
+  await db.execute({
+    sql: "INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)",
+    args: [sessionId, userId, expiresAt],
+  });
   const cookieStore = await cookies();
   cookieStore.set("session", sessionId, {
     httpOnly: true,
-    secure: false,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: 7 * 24 * 60 * 60,
@@ -76,23 +95,31 @@ export async function getCurrentUser(): Promise<User | null> {
   const sessionId = cookieStore.get("session")?.value;
   if (!sessionId) return null;
 
-  const db = getDb();
-  const session = db
-    .prepare("SELECT * FROM sessions WHERE id = ? AND expires_at > datetime('now')")
-    .get(sessionId) as { user_id: number } | undefined;
-  if (!session) return null;
+  const db = await ensureDb();
+  const session = await db.execute({
+    sql: "SELECT * FROM sessions WHERE id = ? AND expires_at > datetime('now')",
+    args: [sessionId],
+  });
+  if (session.rows.length === 0) return null;
 
-  return db.prepare("SELECT id, username, email, phone, primary_role, bowling_style, skill_level, is_admin, created_at FROM users WHERE id = ?").get(
-    session.user_id
-  ) as User | null;
+  const userId = (session.rows[0] as unknown as Record<string, unknown>).user_id;
+  const user = await db.execute({
+    sql: "SELECT id, username, email, phone, primary_role, bowling_style, skill_level, is_admin, created_at FROM users WHERE id = ?",
+    args: [userId as number],
+  });
+  if (user.rows.length === 0) return null;
+  return rowToUser(user.rows[0] as unknown as Record<string, unknown>);
 }
 
 export async function logout(): Promise<void> {
   const cookieStore = await cookies();
   const sessionId = cookieStore.get("session")?.value;
   if (sessionId) {
-    const db = getDb();
-    db.prepare("DELETE FROM sessions WHERE id = ?").run(sessionId);
+    const db = await ensureDb();
+    await db.execute({
+      sql: "DELETE FROM sessions WHERE id = ?",
+      args: [sessionId],
+    });
   }
   cookieStore.delete("session");
 }
