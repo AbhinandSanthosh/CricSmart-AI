@@ -17,7 +17,7 @@ def ball_tracking_page():
 
         # ✅ Lazy import (IMPORTANT FIX)
         try:
-            from moviepy.editor import VideoFileClip
+            from moviepy.editor import VideoFileClip  
         except Exception as e:
             st.error(f"MoviePy import failed: {e}")
             return
