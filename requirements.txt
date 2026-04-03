@@ -1,7 +1,7 @@
 streamlit>=1.32.0
 opencv-python-headless>=4.9.0
-mediapipe>=0.10.0
-ultralytics>=8.0.0
+#mediapipe>=0.10.0
+#ultralytics>=8.0.0
 Pillow>=10.0.0
 pandas>=2.0.0
 numpy>=1.24.0
@@ -9,4 +9,4 @@ requests>=2.31.0
 beautifulsoup4>=4.12.0
 feedparser>=6.0.0
 streamlit-cropper>=0.2.1
-streamlit-autorefreshs
+streamlit-autorefresh
