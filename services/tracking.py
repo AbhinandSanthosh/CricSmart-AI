@@ -1,7 +1,6 @@
 import streamlit as st
 import cv2
 import tempfile
-from analysis_engine import analyze_ball_tracking
 
 
 def ball_tracking_page():
@@ -11,12 +10,12 @@ def ball_tracking_page():
     uploaded_video = st.file_uploader("Upload Cricket Video", type=["mp4", "mov", "avi"])
 
     if uploaded_video:
-        # ✅ Use temp file instead of fixed name (IMPORTANT for cloud)
+        # ✅ temp file (safe for cloud)
         tfile = tempfile.NamedTemporaryFile(delete=False)
         tfile.write(uploaded_video.read())
         video_path = tfile.name
 
-        # ✅ SAFE IMPORT (prevents crash during app load)
+        # ✅ Lazy import (IMPORTANT FIX)
         try:
             from moviepy.editor import VideoFileClip
         except Exception as e:
@@ -42,8 +41,7 @@ def ball_tracking_page():
                     trimmed_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
                     trimmed_path = trimmed_file.name
 
-                    func = clip.subclip  # correct method
-                    new_clip = func(start_time, end_time)
+                    new_clip = clip.subclip(start_time, end_time)
                     new_clip.write_videofile(
                         trimmed_path,
                         codec="libx264",
@@ -68,6 +66,9 @@ def ball_tracking_page():
             with st.spinner("Calibrating Perspective & Tracking Ball..."):
 
                 try:
+                    # ✅ Lazy import HERE (CRITICAL FIX)
+                    from analysis_engine import analyze_ball_tracking
+
                     roi_box = (100, 50, 1100, 800)
 
                     ball_trail, bounce_point, _, _, stats = analyze_ball_tracking(
@@ -113,7 +114,6 @@ def ball_tracking_page():
 
                 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
                 out = None
-
                 frame_idx = 0
 
                 while cap.isOpened():
