@@ -1,4 +1,5 @@
 import { createClient, type Client } from "@libsql/client";
+import bcrypt from "bcryptjs";
 
 let _client: Client | null = null;
 let _initPromise: Promise<void> | null = null;
@@ -78,7 +79,6 @@ async function initDb(client: Client) {
     args: ["admin@criceye.com"],
   });
   if (admin.rows.length === 0) {
-    const bcrypt = require("bcryptjs");
     const hash = bcrypt.hashSync("admin123", 10);
     await client.execute({
       sql: "INSERT INTO users (username, email, password, is_admin, primary_role, skill_level) VALUES (?, ?, ?, 1, 'Batter', 'Advanced')",

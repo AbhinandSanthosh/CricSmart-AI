@@ -40,12 +40,17 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!authenticated) return;
-    setLoading(true);
-    fetch("/api/users")
-      .then((r) => r.json())
-      .then((data) => setUsers(data.users || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch("/api/users");
+        const data = await r.json();
+        if (!cancelled) setUsers(data.users || []);
+      } catch { /* ignore */ } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [authenticated]);
 
   const inputStyle: React.CSSProperties = {
