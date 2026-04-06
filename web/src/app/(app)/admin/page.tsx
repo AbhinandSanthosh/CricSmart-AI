@@ -14,7 +14,7 @@ interface AdminUser {
 
 export default function AdminPage() {
   const [authenticated, setAuthenticated] = useState(false);
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -27,7 +27,7 @@ export default function AdminPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Login failed"); return; }
@@ -77,11 +77,12 @@ export default function AdminPage() {
                 </div>
               )}
               <div>
-                <div className="label-bracket" style={{ marginBottom: 6 }}>username</div>
+                <div className="label-bracket" style={{ marginBottom: 6 }}>email</div>
                 <input
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Admin username"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Admin email"
                   required
                   style={inputStyle}
                 />
