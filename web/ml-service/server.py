@@ -45,9 +45,11 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 
 app = FastAPI(title="CricSmart Ball Tracking")
 
+ALLOWED_ORIGINS = os.environ.get("CORS_ORIGINS", "*").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -769,7 +771,8 @@ async def analyze_video(
         }
 
         if output_name:
-            result["output_video_url"] = f"http://localhost:8000/outputs/{output_name}"
+            base_url = os.environ.get("ML_SERVICE_BASE_URL", "http://localhost:8000")
+            result["output_video_url"] = f"{base_url}/outputs/{output_name}"
 
         return result
 
@@ -780,6 +783,7 @@ async def analyze_video(
 
 
 if __name__ == "__main__":
-    print("Starting CricSmart Ball Tracking Service on http://localhost:8000")
+    port = int(os.environ.get("PORT", 8000))
+    print(f"Starting CricSmart Ball Tracking Service on http://0.0.0.0:{port}")
     print(f"Output videos saved to: {OUTPUT_DIR}")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=port)

@@ -44,6 +44,8 @@ function getShotAdvice(shotType: string, speed: number, hitStumps: boolean): str
   return `Detected a ${paceLabel} delivery at ${speed.toFixed(1)} km/h. ${hitStumps ? "The ball was on target for the stumps." : "The ball missed the stumps."}`;
 }
 
+const ML_SERVICE_URL = process.env.NEXT_PUBLIC_ML_SERVICE_URL || "http://localhost:8000";
+
 export default function BallTrackingPage() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -233,7 +235,7 @@ export default function BallTrackingPage() {
           formData.append("trim_end", trimEnd.toFixed(2));
         }
         try {
-          const res = await fetch("http://localhost:8000/analyze", { method: "POST", body: formData, signal: AbortSignal.timeout(120000) });
+          const res = await fetch(`${ML_SERVICE_URL}/analyze`, { method: "POST", body: formData, signal: AbortSignal.timeout(120000) });
           if (res.ok) {
             const data = await res.json();
             clearInterval(interval);
@@ -263,7 +265,7 @@ export default function BallTrackingPage() {
       setProgress(100);
       await new Promise((r) => setTimeout(r, 500));
       setResult({ speed: 128.5, shotType: "Good Length", bouncePoint: "4th stump line, 6m from stumps", hitStumps: false, confidence: 85 });
-      setError("ML service not running — showing demo results. Start the Python service for real analysis with ball path overlay.");
+      setError("ML service not available — showing demo results. Deploy the ML service or set NEXT_PUBLIC_ML_SERVICE_URL for real analysis.");
     } catch {
       setError("Analysis failed. Please try again.");
     } finally {
