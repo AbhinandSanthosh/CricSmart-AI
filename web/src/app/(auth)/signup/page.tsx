@@ -14,6 +14,7 @@ export default function SignupPage() {
   const { setUser } = useAuth();
   const [form, setForm] = useState({
     username: "",
+    email: "",
     password: "",
     confirm: "",
     role: "Batter",
@@ -74,8 +75,8 @@ export default function SignupPage() {
       <div style={{ width: '100%', maxWidth: 480 }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <div className="avatar" style={{ width: 56, height: 56, fontSize: 20, margin: '0 auto 16px' }}>
-            CE
+          <div style={{ width: 64, height: 64, margin: '0 auto 16px', borderRadius: '50%', background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 50%, #4ade80 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>
+            🏏
           </div>
           <h1 style={{ fontSize: 36, background: 'linear-gradient(180deg, #ffffff 0%, #909ab0 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.03em', fontFamily: 'var(--font-display)', fontWeight: 900, fontStyle: 'italic' }}>
             JOIN CRIC<span style={{ color: 'var(--cs-accent)', WebkitTextFillColor: 'var(--cs-accent)' }}>EYE</span>
@@ -96,11 +97,22 @@ export default function SignupPage() {
               </div>
             )}
             <div>
-              <div className="label-bracket" style={{ marginBottom: 6 }}>username</div>
+              <div className="label-bracket" style={{ marginBottom: 6 }}>full_name</div>
               <input
                 value={form.username}
                 onChange={(e) => update("username", e.target.value)}
-                placeholder="Choose a username"
+                placeholder="Your full name"
+                required
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <div className="label-bracket" style={{ marginBottom: 6 }}>email</div>
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => update("email", e.target.value)}
+                placeholder="your@email.com"
                 required
                 style={inputStyle}
               />

@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: cricsmart-ml
+    runtime: docker
+    dockerfilePath: ./web/ml-service/Dockerfile
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: ML_SERVICE_BASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false

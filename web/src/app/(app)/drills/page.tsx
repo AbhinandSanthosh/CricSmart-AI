@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/store/auth";
-import { Target, Footprints, Zap, Gamepad2, Clock, ChevronRight, Dumbbell } from "lucide-react";
+import { Target, Footprints, Zap, Gamepad2, Clock, ChevronRight, Dumbbell, Shield, Eye } from "lucide-react";
 
 interface Drill {
   name: string;
@@ -90,6 +90,70 @@ const BOWLER_DRILLS: DrillCategory[] = [
   },
 ];
 
+const KEEPER_DRILLS: DrillCategory[] = [
+  {
+    name: "Reflex & Reaction",
+    icon: <Zap style={{ width: 16, height: 16 }} />,
+    drills: [
+      { name: "Tennis Ball Rapid Fire", duration: "10 min", description: "Sharp reflexes for edges and deflections.", steps: ["Stand behind stumps in full gear", "Partner throws tennis balls from 5m at varied heights", "Catch as many as possible in 2 minutes", "Move laterally for wider balls", "Do 3 sets with 1 min rest"], videoUrl: "https://www.youtube.com/results?search_query=wicketkeeper+reflex+drill" },
+      { name: "Stumping Practice", duration: "15 min", description: "Quick glove work for spin bowling.", steps: ["Bowler bowls spin from 18m", "Batter plays and misses deliberately", "Take the ball and break stumps in one motion", "Practice collecting on both sides", "Do 20 stumpings per session"] },
+    ],
+  },
+  {
+    name: "Footwork & Positioning",
+    icon: <Footprints style={{ width: 16, height: 16 }} />,
+    drills: [
+      { name: "Lateral Movement Drill", duration: "15 min", description: "Move quickly to take wide deliveries.", steps: ["Set up with cones 2m apart behind stumps", "Partner throws balls alternating left and right", "Dive and collect cleanly", "Return to center position each time", "Do 3 sets of 20 balls"] },
+      { name: "Standing Up Drill", duration: "15 min", description: "Practice standing up to the stumps for medium pace.", steps: ["Stand up to stumps with medium-pace bowling", "Focus on watching the ball onto the gloves", "Practice taking clean on both sides", "Work on timing for stumpings", "Build up speed gradually"] },
+    ],
+  },
+  {
+    name: "Catching & Diving",
+    icon: <Shield style={{ width: 16, height: 16 }} />,
+    drills: [
+      { name: "Edge Catching", duration: "15 min", description: "Simulate edge catches at match speed.", steps: ["Use bat and ball to create edge deflections", "Stand at normal keeping distance", "Focus on moving feet first, then hands", "Practice both regulation and diving catches", "Do 3 sets of 10 edges"] },
+      { name: "High Ball Catching", duration: "10 min", description: "Take high catches from skied deliveries.", steps: ["Partner throws/hits high catches", "Call early and move into position", "Watch the ball into the gloves", "Practice catching with sun in eyes", "Do 2 sets of 15 catches"] },
+    ],
+  },
+];
+
+const FIELDING_DRILLS: DrillCategory[] = [
+  {
+    name: "Ground Fielding",
+    icon: <Target style={{ width: 16, height: 16 }} />,
+    drills: [
+      { name: "Pick-Up & Throw", duration: "15 min", description: "Clean ground fielding and accurate throws.", steps: ["Partner rolls balls to your left and right", "Attack the ball, pick up cleanly", "Throw to single stump from 20m", "Aim for direct hits", "Do 3 sets of 15 balls per side"] },
+      { name: "Sliding Stop", duration: "10 min", description: "Save boundaries with the sliding stop technique.", steps: ["Sprint to a rolling ball near the boundary", "Slide on your side to intercept", "Collect and throw in one motion", "Practice on both sides", "Do 3 sets of 10 sprints"] },
+      { name: "Rapid Return Drill", duration: "10 min", description: "Fast pick-up and return under pressure.", steps: ["Stand 15m from stumps", "Ball is hit/rolled towards you", "Pick up and throw in under 2 seconds", "Alternate between underarm and overarm", "Track your accuracy over 20 balls"] },
+    ],
+  },
+  {
+    name: "Catching",
+    icon: <Shield style={{ width: 16, height: 16 }} />,
+    drills: [
+      { name: "High Catch Practice", duration: "15 min", description: "Take high catches with confidence.", steps: ["Use a tennis racket or throwdowns for height", "Call loudly and get under the ball early", "Hands form a reverse cup above eye level", "Watch the ball into your hands", "Do 3 sets of 12 catches"] },
+      { name: "Slip Catching", duration: "15 min", description: "Sharp reaction catches in the slip cordon.", steps: ["Stand in slip position", "Partner edges balls using bat", "Start with slow edges, build pace", "Focus on soft hands and watching the ball late", "Do 3 sets of 15 catches"], videoUrl: "https://www.youtube.com/results?search_query=cricket+slip+catching+drill" },
+      { name: "One-Hand Catching", duration: "10 min", description: "Extend your range with one-handed grabs.", steps: ["Partner throws balls just out of two-hand reach", "Dive or stretch to catch with one hand", "Practice left and right", "Focus on cushioning the ball", "Do 2 sets of 10 per side"] },
+    ],
+  },
+  {
+    name: "Agility & Speed",
+    icon: <Footprints style={{ width: 16, height: 16 }} />,
+    drills: [
+      { name: "Boundary Sprint Drill", duration: "10 min", description: "Sprint, collect, and relay from the boundary.", steps: ["Start on the boundary rope", "Sprint to collect a ball 20m infield", "Relay throw to keeper on the turn", "Jog back and repeat", "Do 3 sets of 8 sprints"] },
+      { name: "Reaction Ball Drill", duration: "10 min", description: "Improve reflexes with unpredictable bounces.", steps: ["Use a reaction ball (uneven bounce)", "Throw against a wall", "React to the random bounce direction", "Catch cleanly if possible", "Do 3 sets of 2 minutes"] },
+    ],
+  },
+  {
+    name: "Throwing Accuracy",
+    icon: <Eye style={{ width: 16, height: 16 }} />,
+    drills: [
+      { name: "Single Stump Target", duration: "15 min", description: "Hit a single stump from various distances.", steps: ["Start at 15m, throw at single stump", "Move back 5m after every 3 hits", "Track accuracy at each distance", "Use both flat throws and lobs", "Goal: 3 hits from 30m+"] },
+      { name: "Run-Out Practice", duration: "15 min", description: "Simulate match run-out situations.", steps: ["Batter runs between wickets", "Field ball and throw to either end", "Focus on quick release", "Practice direct hits and backing up", "Do 3 sets of 10 attempts"] },
+    ],
+  },
+];
+
 const ALL_ROUNDER_DRILLS: DrillCategory[] = [
   {
     name: "Bowl-Bat Cycle",
@@ -101,48 +165,73 @@ const ALL_ROUNDER_DRILLS: DrillCategory[] = [
   },
 ];
 
-const KEEPER_DRILLS: DrillCategory[] = [
-  {
-    name: "Reflex & Reaction",
-    icon: <Zap style={{ width: 16, height: 16 }} />,
-    drills: [
-      { name: "Tennis Ball Rapid Fire", duration: "10 min", description: "Sharp reflexes for edges and deflections.", steps: ["Stand behind stumps in full gear", "Partner throws tennis balls from 5m at varied heights", "Catch as many as possible in 2 minutes", "Move laterally for wider balls", "Do 3 sets with 1 min rest"], videoUrl: "https://www.youtube.com/results?search_query=wicketkeeper+reflex+drill" },
-      { name: "Stumping Practice", duration: "15 min", description: "Quick glove work for spin bowling.", steps: ["Bowler bowls spin from 18m", "Batter plays and misses deliberately", "Take the ball and break stumps in one motion", "Practice collecting on both sides", "Do 20 stumpings per session"] },
-    ],
-  },
+const ROLE_TABS = [
+  { key: "Batter", label: "BATTER", icon: "🏏" },
+  { key: "Bowler", label: "BOWLER", icon: "🎯" },
+  { key: "Wicketkeeper", label: "KEEPER", icon: "🧤" },
+  { key: "Fielding", label: "FIELDING", icon: "🏃" },
+  { key: "All-Rounder", label: "ALL-ROUNDER", icon: "⚡" },
 ];
 
 function getWeeklyPlan(role: string): string[] {
   if (role === "Batter") return ["Mon: Shadow batting (15min) + Front foot defense (20min)", "Tue: Hand-eye coordination drills (25min) + Fitness", "Wed: Footwork ladder drill (10min) + Net session", "Thu: REST - Light stretching & visualization", "Fri: Power hitting (20min) + Target practice (15min)", "Sat: Game simulation scenario (30min) + Net session", "Sun: Video analysis of the week + Light batting"];
   if (role === "Bowler") return ["Mon: Cone target bowling (20min) + Run-up work", "Tue: Corridor bowling (15min) + Fitness & conditioning", "Wed: Variation practice - slower balls (20min)", "Thu: REST - Light stretching & recovery", "Fri: Yorker practice (15min) + Bouncer mix (15min)", "Sat: Match simulation bowling (6 overs) + Analysis", "Sun: Shadow bowling + Flexibility work"];
   if (role === "All-Rounder") return ["Mon: Bowl 6 overs (accuracy) + Bat 30min (technique)", "Tue: Bowling variations (20min) + Fitness", "Wed: Transition drill - bowl 6, bat 6 (40min)", "Thu: REST - Light stretching & mental preparation", "Fri: Power hitting (20min) + Yorker practice (15min)", "Sat: Full match simulation + Pressure switch drill", "Sun: Video analysis + Recovery session"];
+  if (role === "Fielding") return ["Mon: Ground fielding pick-up & throw (15min) + Catching", "Tue: Slip catching (15min) + Agility drills", "Wed: Boundary sprint drill (10min) + Throwing accuracy", "Thu: REST - Flexibility & hand-eye exercises", "Fri: One-hand catching (10min) + Run-out practice", "Sat: Full fielding session - all positions (45min)", "Sun: Reaction ball drill + Light stretching"];
   return ["Mon: Reflex tennis ball drill (10min) + Agility work", "Tue: Stumping practice to spin (15min) + Footwork", "Wed: Batting net session (30min) + Keeping to pace", "Thu: REST - Flexibility, hand strength exercises", "Fri: Rapid fire catching (15min) + Standing back practice", "Sat: Match simulation - keeping full innings + Batting", "Sun: Video review + Light fitness"];
 }
 
 export default function DrillsPage() {
   const { user } = useAuth();
+  const userRole = user?.primary_role || "Batter";
+  const [activeRole, setActiveRole] = useState(userRole === "Wicketkeeper" ? "Wicketkeeper" : userRole === "All-Rounder" ? "All-Rounder" : userRole);
   const [selectedDrill, setSelectedDrill] = useState<Drill | null>(null);
   const [activeTab, setActiveTab] = useState<"drills" | "plan">("drills");
-  const role = user?.primary_role || "Batter";
 
-  const drillSets: Record<string, DrillCategory[]> = { Batter: BATTER_DRILLS, Bowler: BOWLER_DRILLS, "All-Rounder": ALL_ROUNDER_DRILLS, Wicketkeeper: KEEPER_DRILLS };
-  const currentDrills = drillSets[role] || BATTER_DRILLS;
-  const weeklyPlan = getWeeklyPlan(role);
+  const drillSets: Record<string, DrillCategory[]> = {
+    Batter: BATTER_DRILLS,
+    Bowler: BOWLER_DRILLS,
+    Wicketkeeper: KEEPER_DRILLS,
+    Fielding: FIELDING_DRILLS,
+    "All-Rounder": ALL_ROUNDER_DRILLS,
+  };
+  const currentDrills = drillSets[activeRole] || BATTER_DRILLS;
+  const weeklyPlan = getWeeklyPlan(activeRole);
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 24 }}>
       {/* Hero */}
       <div style={{ gridColumn: 'span 12', padding: '20px 0' }}>
         <div className="label-bracket" style={{ marginBottom: 12 }}>training_academy</div>
-        <h1 style={{ fontSize: 48, background: 'linear-gradient(180deg, #ffffff 0%, #909ab0 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.03em' }}>
+        <h1 className="hero-title" style={{ fontSize: 48 }}>
           ACADEMY DRILLS
         </h1>
         <p style={{ color: 'var(--text-muted)', fontSize: 16, marginTop: 8 }}>
-          Structured practice routines for {role}s
+          Role-specific practice routines to elevate your game
         </p>
       </div>
 
-      {/* Tabs */}
+      {/* Role Tabs */}
+      <div style={{ gridColumn: 'span 12', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {ROLE_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => { setActiveRole(tab.key); setSelectedDrill(null); }}
+            style={{
+              padding: '10px 20px', borderRadius: 12, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              border: activeRole === tab.key ? '1px solid rgba(0,212,255,0.3)' : '1px solid var(--cs-border-strong)',
+              background: activeRole === tab.key ? 'rgba(0,212,255,0.1)' : 'transparent',
+              color: activeRole === tab.key ? 'var(--cs-accent)' : 'var(--text-muted)',
+              transition: 'all 0.2s', fontFamily: 'var(--font-display)', fontStyle: 'italic',
+              letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 8,
+            }}
+          >
+            <span>{tab.icon}</span> {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Drill/Plan Tabs */}
       <div style={{ gridColumn: 'span 12', display: 'flex', gap: 12 }}>
         <button onClick={() => setActiveTab("drills")} className={`btn ${activeTab === "drills" ? "btn-primary" : "btn-secondary"}`} style={{ padding: '8px 24px', fontSize: 14 }}>
           Drill Library
@@ -213,7 +302,7 @@ export default function DrillsPage() {
         <div className="panel" style={{ gridColumn: 'span 12' }}>
           <div className="panel-header">
             <span className="label-bracket">weekly_schedule</span>
-            <h2 className="panel-title">7-DAY {role.toUpperCase()} PLAN</h2>
+            <h2 className="panel-title">7-DAY {activeRole.toUpperCase()} PLAN</h2>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {weeklyPlan.map((day, i) => {

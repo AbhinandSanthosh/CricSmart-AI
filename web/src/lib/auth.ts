@@ -8,6 +8,7 @@ export interface User {
   username: string;
   email: string;
   phone: string;
+  profile_photo: string;
   primary_role: string;
   bowling_style: string;
   skill_level: string;
@@ -18,9 +19,10 @@ export interface User {
 function rowToUser(row: Record<string, unknown>): User {
   return {
     id: row.id as number,
-    username: row.username as string,
+    username: (row.username as string) || "",
     email: (row.email as string) || "",
     phone: (row.phone as string) || "",
+    profile_photo: (row.profile_photo as string) || "",
     primary_role: (row.primary_role as string) || "Batter",
     bowling_style: (row.bowling_style as string) || "",
     skill_level: (row.skill_level as string) || "Beginner",
@@ -30,23 +32,24 @@ function rowToUser(row: Record<string, unknown>): User {
 }
 
 export async function createUser(
-  username: string,
+  email: string,
   password: string,
+  username: string,
   role: string,
   skillLevel: string,
   bowlingStyle?: string
 ): Promise<User> {
   const db = await ensureDb();
   const existing = await db.execute({
-    sql: "SELECT id FROM users WHERE username = ?",
-    args: [username],
+    sql: "SELECT id FROM users WHERE email = ?",
+    args: [email],
   });
-  if (existing.rows.length > 0) throw new Error("Username already taken");
+  if (existing.rows.length > 0) throw new Error("Email already registered");
 
   const hash = bcrypt.hashSync(password, 10);
   const result = await db.execute({
-    sql: "INSERT INTO users (username, password, primary_role, bowling_style, skill_level) VALUES (?, ?, ?, ?, ?)",
-    args: [username, hash, role, bowlingStyle || "", skillLevel],
+    sql: "INSERT INTO users (username, email, password, primary_role, bowling_style, skill_level) VALUES (?, ?, ?, ?, ?, ?)",
+    args: [username, email, hash, role, bowlingStyle || "", skillLevel],
   });
 
   const newUser = await db.execute({
@@ -57,13 +60,13 @@ export async function createUser(
 }
 
 export async function authenticateUser(
-  username: string,
+  email: string,
   password: string
 ): Promise<User | null> {
   const db = await ensureDb();
   const result = await db.execute({
-    sql: "SELECT * FROM users WHERE username = ?",
-    args: [username],
+    sql: "SELECT * FROM users WHERE email = ?",
+    args: [email],
   });
   if (result.rows.length === 0) return null;
   const row = result.rows[0] as unknown as Record<string, unknown>;
@@ -104,7 +107,7 @@ export async function getCurrentUser(): Promise<User | null> {
 
   const userId = (session.rows[0] as unknown as Record<string, unknown>).user_id;
   const user = await db.execute({
-    sql: "SELECT id, username, email, phone, primary_role, bowling_style, skill_level, is_admin, created_at FROM users WHERE id = ?",
+    sql: "SELECT id, username, email, phone, profile_photo, primary_role, bowling_style, skill_level, is_admin, created_at FROM users WHERE id = ?",
     args: [userId as number],
   });
   if (user.rows.length === 0) return null;

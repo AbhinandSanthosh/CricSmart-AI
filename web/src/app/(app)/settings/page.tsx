@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAuth } from "@/store/auth";
+import { Camera } from "lucide-react";
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [profileForm, setProfileForm] = useState({ email: user?.email || "", phone: user?.phone || "" });
   const [passwordForm, setPasswordForm] = useState({ current: "", newPass: "", confirm: "" });
   const [profileMsg, setProfileMsg] = useState("");
   const [passwordMsg, setPasswordMsg] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -32,6 +35,22 @@ export default function SettingsPage() {
     }
   }
 
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { alert("Image too large. Max 2MB."); return; }
+    setUploading(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      try {
+        const res = await fetch("/api/users/photo", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ photo: base64 }) });
+        if (res.ok) { setUser({ ...user!, profile_photo: base64 }); }
+      } catch { /* ignore */ } finally { setUploading(false); }
+    };
+    reader.readAsDataURL(file);
+  }
+
   const inputStyle: React.CSSProperties = {
     width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--cs-border-strong)',
     borderRadius: 12, padding: '12px 16px', color: 'var(--text-main)', fontFamily: 'var(--font-ui)',
@@ -47,7 +66,40 @@ export default function SettingsPage() {
         </h1>
       </div>
 
-      {/* Profile */}
+      {/* Profile Photo */}
+      <div className="panel" style={{ gridColumn: 'span 12' }}>
+        <div className="panel-header">
+          <span className="label-bracket">avatar</span>
+          <h2 className="panel-title">PROFILE PHOTO</h2>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          <div style={{ position: 'relative' }}>
+            <div
+              onClick={() => fileRef.current?.click()}
+              style={{
+                width: 80, height: 80, borderRadius: '50%', cursor: 'pointer',
+                background: user?.profile_photo ? `url(${user.profile_photo}) center/cover` : 'linear-gradient(135deg, #16a34a 0%, #22c55e 50%, #4ade80 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: '3px solid var(--cs-border-strong)', transition: 'all 0.3s',
+                fontSize: 28, fontFamily: 'var(--font-display)', fontWeight: 900, fontStyle: 'italic', color: '#000',
+              }}
+            >
+              {!user?.profile_photo && user?.username?.charAt(0).toUpperCase()}
+              <div style={{ position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, background: 'var(--cs-accent)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg-base)' }}>
+                <Camera style={{ width: 14, height: 14, color: '#000' }} />
+              </div>
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: 'none' }} />
+            {uploading && <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'var(--cs-accent)' }}>...</div>}
+          </div>
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-main)' }}>{user?.username}</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Click on the photo to upload a new image (max 2MB)</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Profile Info */}
       <div className="panel" style={{ gridColumn: 'span 12' }}>
         <div className="panel-header">
           <span className="label-bracket">profile</span>
@@ -55,14 +107,14 @@ export default function SettingsPage() {
         </div>
         <form onSubmit={saveProfile} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <div className="label-bracket" style={{ marginBottom: 6 }}>username</div>
+            <div className="label-bracket" style={{ marginBottom: 6 }}>display_name</div>
             <input value={user?.username || ""} disabled style={{ ...inputStyle, opacity: 0.5, cursor: 'not-allowed' }} />
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Username cannot be changed</p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
               <div className="label-bracket" style={{ marginBottom: 6 }}>email</div>
-              <input type="email" value={profileForm.email} onChange={(e) => setProfileForm((p) => ({ ...p, email: e.target.value }))} placeholder="your@email.com" style={inputStyle} />
+              <input value={user?.email || ""} disabled style={{ ...inputStyle, opacity: 0.5, cursor: 'not-allowed' }} />
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Email is used for login and cannot be changed</p>
             </div>
             <div>
               <div className="label-bracket" style={{ marginBottom: 6 }}>phone</div>
