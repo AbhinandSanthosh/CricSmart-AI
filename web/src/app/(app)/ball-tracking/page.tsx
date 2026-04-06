@@ -44,7 +44,7 @@ function getShotAdvice(shotType: string, speed: number, hitStumps: boolean): str
   return `Detected a ${paceLabel} delivery at ${speed.toFixed(1)} km/h. ${hitStumps ? "The ball was on target for the stumps." : "The ball missed the stumps."}`;
 }
 
-const ML_SERVICE_URL = process.env.NEXT_PUBLIC_ML_SERVICE_URL || "http://localhost:8000";
+const ML_SERVICE_URL = process.env.NEXT_PUBLIC_ML_SERVICE_URL || "https://abhinandsanthosh--cricsmart-ml-service-serve.modal.run";
 
 export default function BallTrackingPage() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);

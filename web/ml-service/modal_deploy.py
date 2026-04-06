@@ -40,8 +40,8 @@ model_volume = modal.Volume.from_name("cricsmart-models", create_if_missing=True
     gpu="T4",                   # Free-tier GPU — great for YOLO inference
     timeout=300,                # 5 min max per request
     volumes={"/models": model_volume},
-    allow_concurrent_inputs=5,
 )
+@modal.concurrent(max_inputs=5)
 @modal.asgi_app()
 def serve():
     """Serve the FastAPI ball tracking API on Modal."""
@@ -120,7 +120,7 @@ def serve():
                 self.initialized = True
             self.kalman.correct(measurement)
             pred = self.kalman.predict()
-            self.last_pos = (int(pred[0]), int(pred[1]))
+            self.last_pos = (int(pred.flat[0]), int(pred.flat[1]))
             return self.last_pos
 
     def calculate_speed(ball_trail, px_to_meter, fps=30):
@@ -271,7 +271,7 @@ def serve():
             tracker = BallTracker()
             ball_trail = []
             for d in delivery:
-                t = tracker.update((d[1], d[2]))
+                t = tracker.update((float(d.flat[1]), float(d.flat[2])))
                 if t: ball_trail.append(t)
             if len(ball_trail) < 3:
                 ball_trail = [(d[1], d[2]) for d in delivery]
