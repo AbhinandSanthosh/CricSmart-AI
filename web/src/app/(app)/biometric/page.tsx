@@ -357,7 +357,7 @@ export default function BiometricPage() {
                       <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.1em', fontWeight: 600 }}>STANCE SCORE</div>
                     </div>
                   )}
-                  <div style={{ position: 'absolute', top: 10, left: result ? undefined : 10, right: result ? undefined : undefined, background: 'rgba(0,0,0,0.7)', padding: '4px 10px', borderRadius: 6, fontSize: 10, color: 'var(--cs-accent)', fontWeight: 700, letterSpacing: '0.08em', ...(result ? { top: 10, right: 10, left: 'auto' } : { top: 10, left: 10 }) }}>POSE DETECTED</div>
+                  <div style={{ position: 'absolute', background: 'rgba(0,0,0,0.7)', padding: '4px 10px', borderRadius: 6, fontSize: 10, color: 'var(--cs-accent)', fontWeight: 700, letterSpacing: '0.08em', ...(result ? { top: 10, right: 10, left: 'auto' } : { top: 10, left: 10 }) }}>POSE DETECTED</div>
                   {/* Legend */}
                   <div style={{ position: 'absolute', bottom: 12, right: 12, background: 'rgba(0,0,0,0.7)', borderRadius: 8, padding: '8px 12px', display: 'flex', gap: 12, fontSize: 9, fontWeight: 600 }}>
                     <span style={{ color: '#00d4ff' }}>&#9679; Torso</span>
