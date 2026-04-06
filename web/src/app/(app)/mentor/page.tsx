@@ -82,13 +82,13 @@ export default function MentorPage() {
             </span>
           )}
         </div>
-        <h1 style={{ fontSize: 48, background: 'linear-gradient(180deg, #ffffff 0%, #909ab0 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.03em' }}>
+        <h1 className="hero-title" style={{ fontSize: 48 }}>
           COACH CHAT
         </h1>
       </div>
 
       {/* Chat Panel */}
-      <div className="panel" style={{ gridColumn: 'span 12', height: 'calc(100vh - 320px)', display: 'flex', flexDirection: 'column' }}>
+      <div className="panel" style={{ gridColumn: 'span 12', height: 'calc(100vh - 280px)', minHeight: 400, display: 'flex', flexDirection: 'column' }}>
         <div className="panel-header">
           <span className="label-bracket">conversation</span>
           <h2 className="panel-title">AI COACH</h2>
