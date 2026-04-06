@@ -24,10 +24,11 @@ async function initDb(client: Client) {
   await client.executeMultiple(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL COLLATE NOCASE,
+      username TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL COLLATE NOCASE,
       password TEXT NOT NULL,
-      email TEXT DEFAULT '',
       phone TEXT DEFAULT '',
+      profile_photo TEXT DEFAULT '',
       primary_role TEXT DEFAULT 'Batter',
       bowling_style TEXT DEFAULT '',
       skill_level TEXT DEFAULT 'Beginner',
@@ -60,19 +61,28 @@ async function initDb(client: Client) {
       created_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
+
+    CREATE TABLE IF NOT EXISTS password_resets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL,
+      token TEXT UNIQUE NOT NULL,
+      expires_at TEXT NOT NULL,
+      used INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   // Seed admin user if not exists
   const admin = await client.execute({
-    sql: "SELECT id FROM users WHERE username = ?",
-    args: ["admin"],
+    sql: "SELECT id FROM users WHERE email = ?",
+    args: ["admin@criceye.com"],
   });
   if (admin.rows.length === 0) {
     const bcrypt = require("bcryptjs");
     const hash = bcrypt.hashSync("admin123", 10);
     await client.execute({
-      sql: "INSERT INTO users (username, password, is_admin, primary_role, skill_level) VALUES (?, ?, 1, 'Batter', 'Advanced')",
-      args: ["admin", hash],
+      sql: "INSERT INTO users (username, email, password, is_admin, primary_role, skill_level) VALUES (?, ?, ?, 1, 'Batter', 'Advanced')",
+      args: ["Admin", "admin@criceye.com", hash],
     });
   }
   _initPromise = null;

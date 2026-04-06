@@ -8,7 +8,7 @@ import { useAuth } from "@/store/auth";
 export default function LoginPage() {
   const router = useRouter();
   const { setUser } = useAuth();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -21,7 +21,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -45,13 +45,13 @@ export default function LoginPage() {
       <div style={{ width: '100%', maxWidth: 420 }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <div className="avatar" style={{ width: 56, height: 56, fontSize: 20, margin: '0 auto 16px' }}>
-            CE
+          <div style={{ width: 64, height: 64, margin: '0 auto 16px', borderRadius: '50%', background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 50%, #4ade80 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>
+            🏏
           </div>
           <h1 style={{ fontSize: 36, background: 'linear-gradient(180deg, #ffffff 0%, #909ab0 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.03em', fontFamily: 'var(--font-display)', fontWeight: 900, fontStyle: 'italic' }}>
             CRIC<span style={{ color: 'var(--cs-accent)', WebkitTextFillColor: 'var(--cs-accent)' }}>EYE</span>
           </h1>
-          <div className="label-bracket" style={{ marginTop: 8 }}>ai_platform</div>
+          <div className="label-bracket" style={{ marginTop: 8 }}>ai_cricket_coach</div>
         </div>
 
         {/* Card */}
@@ -67,11 +67,12 @@ export default function LoginPage() {
               </div>
             )}
             <div>
-              <div className="label-bracket" style={{ marginBottom: 6 }}>username</div>
+              <div className="label-bracket" style={{ marginBottom: 6 }}>email</div>
               <input
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter username"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
                 required
                 style={inputStyle}
               />
@@ -86,6 +87,11 @@ export default function LoginPage() {
                 required
                 style={inputStyle}
               />
+            </div>
+            <div style={{ textAlign: 'right', marginTop: -8 }}>
+              <Link href="/forgot-password" style={{ fontSize: 12, color: 'var(--cs-accent)', textDecoration: 'none', fontWeight: 600 }}>
+                Forgot password?
+              </Link>
             </div>
             <button
               type="submit"

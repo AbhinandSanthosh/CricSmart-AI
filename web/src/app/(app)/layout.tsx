@@ -89,8 +89,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* User profile */}
         <div className="user-profile">
-          <div className="avatar">
-            {user?.username?.charAt(0).toUpperCase()}
+          <div
+            className="avatar"
+            style={user?.profile_photo ? {
+              background: `url(${user.profile_photo}) center/cover`,
+              width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+            } : undefined}
+          >
+            {!user?.profile_photo && user?.username?.charAt(0).toUpperCase()}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-main)' }}>
@@ -138,12 +144,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
              pathname === '/settings' ? 'account_settings' :
              pathname === '/admin' ? 'admin_panel' : 'criceye_ai'}
           </div>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <Link href="/biometric" className="btn btn-secondary" style={{ padding: '8px 20px', fontSize: 14, textDecoration: 'none' }}>
+          <div className="header-actions" style={{ display: 'flex', gap: 12 }}>
+            <Link href="/biometric" className="btn btn-secondary header-stance-btn" style={{ padding: '8px 20px', fontSize: 14, textDecoration: 'none' }}>
               Stance Lab
             </Link>
             <Link href="/drills" className="btn btn-primary" style={{ padding: '6px 6px 6px 20px', fontSize: 14, textDecoration: 'none' }}>
-              Start Drill
+              <span className="hidden sm:inline">Start </span>Drill
               <div className="btn-icon-circle" style={{ width: 28, height: 28, fontSize: 16 }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="square"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
               </div>
@@ -185,9 +191,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         )}
 
         {/* Page content */}
-        <div style={{ padding: 40, maxWidth: 1600 }}>
+        <div className="page-content" style={{ padding: '40px', maxWidth: 1600 }}>
           {children}
         </div>
+        <style>{`
+          @media (max-width: 768px) {
+            .page-content { padding: 16px !important; }
+          }
+        `}</style>
       </main>
     </div>
   );
