@@ -230,6 +230,7 @@ export default function BiometricPage() {
       });
 
       const poseResult = poseLandmarker.detect(img);
+      console.log(`[StanceLab] MediaPipe detected ${poseResult.landmarks?.length || 0} pose(s)`);
       if (!poseResult.landmarks || poseResult.landmarks.length === 0) {
         setError("No person detected. Please upload a clear full-body batting stance photo with good lighting.");
         setAnalyzing(false);
@@ -239,6 +240,12 @@ export default function BiometricPage() {
       // Pick the most batter-like person. Rejects wicketkeepers (crouched),
       // bowlers (arm raised / mid-stride), umpires, and other fielders.
       const selection = selectBatsman(poseResult.landmarks);
+      console.log("[StanceLab] Batsman selection:", {
+        picked: selection.index,
+        score: selection.score,
+        reason: selection.reason,
+        rejected: selection.rejected,
+      });
       if (!selection.landmarks) {
         setError(`Couldn't find a batter in this photo — ${selection.reason}. Try a photo where the batter is clearly in their stance.`);
         setAnalyzing(false);
