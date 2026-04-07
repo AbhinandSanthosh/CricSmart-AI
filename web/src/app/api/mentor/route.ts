@@ -24,12 +24,49 @@ COACHING STYLE:
 
 REMEMBER: If you don't know something for certain, say so. It's better to give general technique advice than to invent facts. Inventing facts is the worst thing you can do.`;
 
-async function callOpenRouter(
+// OpenRouter free-tier models are heavily rate-limited and churn often, so we
+// keep a small priority chain. The first one that responds wins; on 429 / 5xx
+// / network error we fall through to the next.
+//
+// Chosen for: (1) instruction-following quality, (2) >=7B params, (3) currently
+// available on OpenRouter free tier, (4) clean output (no reasoning leakage).
+const FALLBACK_CHAIN: string[] = [
+  "openai/gpt-oss-120b:free",          // 120B, clean output, best instruction following
+  "meta-llama/llama-3.3-70b-instruct:free",  // 70B, stable fallback
+  "google/gemma-3-27b-it:free",        // 27B, solid
+  "qwen/qwen3-next-80b-a3b-instruct:free",   // 80B MoE
+  "z-ai/glm-4.5-air:free",             // strong but often rate-limited
+];
+
+const DEFAULT_MODEL = FALLBACK_CHAIN[0];
+
+function resolveModelChain(): string[] {
+  const envModel = process.env.OPENROUTER_MODEL?.trim();
+  if (!envModel) return FALLBACK_CHAIN;
+
+  // Tiny models (e.g. liquid/lfm-2.5-1.2b-instruct:free) can't follow the
+  // coaching prompt and will hallucinate no matter what. Silently ignore them
+  // and use the default chain.
+  const match = envModel.match(/(\d+(?:\.\d+)?)b/i);
+  if (match) {
+    const size = parseFloat(match[1]);
+    if (size < 7) {
+      console.warn(`[mentor] Ignoring too-small OPENROUTER_MODEL="${envModel}" (${size}B). Using default chain.`);
+      return FALLBACK_CHAIN;
+    }
+  }
+
+  // User-specified model is tried first, but we still fall back to the rest
+  // of the chain if it errors.
+  return [envModel, ...FALLBACK_CHAIN.filter((m) => m !== envModel)];
+}
+
+async function callOpenRouterModel(
   apiKey: string,
+  model: string,
   message: string,
   history: { role: string; content: string }[],
-): Promise<string | null> {
-  const model = process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-exp:free";
+): Promise<{ reply: string | null; status: number }> {
   try {
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -50,18 +87,34 @@ async function callOpenRouter(
         temperature: 0.2,
         top_p: 0.85,
       }),
-      signal: AbortSignal.timeout(45000),
+      signal: AbortSignal.timeout(30000),
     });
     if (!res.ok) {
-      await res.text();
-      return null;
+      await res.text().catch(() => "");
+      return { reply: null, status: res.status };
     }
     const data = await res.json();
     const reply: string | undefined = data.choices?.[0]?.message?.content;
-    return reply?.trim() || null;
+    return { reply: reply?.trim() || null, status: 200 };
   } catch {
-    return null;
+    return { reply: null, status: 0 };
   }
+}
+
+async function callOpenRouter(
+  apiKey: string,
+  message: string,
+  history: { role: string; content: string }[],
+): Promise<{ reply: string | null; model: string | null }> {
+  const chain = resolveModelChain();
+  for (const model of chain) {
+    const { reply, status } = await callOpenRouterModel(apiKey, model, message, history);
+    if (reply) return { reply, model };
+    // Only walk the chain on rate-limit / server errors / network failures.
+    // A 4xx other than 429 usually means the request is malformed, so stop.
+    if (status !== 429 && status !== 0 && status < 500) break;
+  }
+  return { reply: null, model: null };
 }
 
 async function callOllama(
@@ -112,16 +165,17 @@ export async function POST(req: NextRequest) {
 
     const safeHistory = Array.isArray(history) ? history : [];
 
-    // --- Step 2: try OpenRouter (primary model) ---
+    // --- Step 2: try OpenRouter (chain of models, rate-limit resilient) ---
     const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
     if (OPENROUTER_KEY) {
-      const raw = await callOpenRouter(OPENROUTER_KEY, message, safeHistory);
+      const { reply: raw, model } = await callOpenRouter(OPENROUTER_KEY, message, safeHistory);
       if (raw) {
         const { cleaned, wasSanitized } = sanitizeReply(raw);
         if (cleaned) {
           return NextResponse.json({
             reply: cleaned,
             source: wasSanitized ? "openrouter_sanitized" : "openrouter",
+            model,
           });
         }
         // Response was fully stripped by sanitizer → unsafe, fall through

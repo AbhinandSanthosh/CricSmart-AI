@@ -59,6 +59,265 @@ function distance(a: Landmark, b: Landmark): number {
   return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
 }
 
+// -----------------------------------------------------------------------------
+// Batsman detection
+// -----------------------------------------------------------------------------
+// MediaPipe returns one skeleton per visible person. In a cricket scene the
+// camera often catches the batter, the wicketkeeper (crouched behind stumps),
+// the bowler (mid-delivery), the umpire, or other fielders. If we blindly pick
+// the first landmark set, we frequently analyse the wrong person. This scorer
+// filters candidates using cricket-specific pose heuristics so that only a
+// plausible batting stance is accepted.
+
+export interface BatsmanScore {
+  score: number;
+  reasons: string[];
+  disqualified: boolean;
+  disqualifier: string | null;
+}
+
+export function scoreBatsmanCandidate(landmarks: Landmark[]): BatsmanScore {
+  const reasons: string[] = [];
+
+  // Guard: require the core landmarks we rely on. If MediaPipe didn't see the
+  // person clearly (hip/knee/shoulder invisible), they can't be a valid batter.
+  const required = [
+    LEFT_SHOULDER, RIGHT_SHOULDER,
+    LEFT_HIP, RIGHT_HIP,
+    LEFT_KNEE, RIGHT_KNEE,
+    LEFT_ANKLE, RIGHT_ANKLE,
+    LEFT_WRIST, RIGHT_WRIST,
+    NOSE,
+  ];
+  for (const idx of required) {
+    if (!landmarks[idx] || landmarks[idx].visibility < 0.35) {
+      return { score: 0, reasons: ["core landmarks not visible"], disqualified: true, disqualifier: "low_visibility" };
+    }
+  }
+
+  // Basic geometry
+  const midShoulderY = (landmarks[LEFT_SHOULDER].y + landmarks[RIGHT_SHOULDER].y) / 2;
+  const midHipY = (landmarks[LEFT_HIP].y + landmarks[RIGHT_HIP].y) / 2;
+  const midAnkleY = (landmarks[LEFT_ANKLE].y + landmarks[RIGHT_ANKLE].y) / 2;
+  const torsoHeight = Math.abs(midHipY - midShoulderY) || 0.001;
+  const bodyHeight = Math.abs(midAnkleY - midShoulderY) || 0.001;
+  const shoulderWidth = Math.abs(landmarks[LEFT_SHOULDER].x - landmarks[RIGHT_SHOULDER].x) || 0.001;
+
+  const leftKneeAngle = angleBetween(landmarks[LEFT_HIP], landmarks[LEFT_KNEE], landmarks[LEFT_ANKLE]);
+  const rightKneeAngle = angleBetween(landmarks[RIGHT_HIP], landmarks[RIGHT_KNEE], landmarks[RIGHT_ANKLE]);
+  const minKnee = Math.min(leftKneeAngle, rightKneeAngle);
+  const maxKnee = Math.max(leftKneeAngle, rightKneeAngle);
+
+  // Wrist heights relative to shoulders (positive = wrists above shoulders)
+  const leftWristRel = (midShoulderY - landmarks[LEFT_WRIST].y) / torsoHeight;
+  const rightWristRel = (midShoulderY - landmarks[RIGHT_WRIST].y) / torsoHeight;
+  const topWristRel = Math.max(leftWristRel, rightWristRel);
+
+  // Ankle spread
+  const ankleGapX = Math.abs(landmarks[LEFT_ANKLE].x - landmarks[RIGHT_ANKLE].x);
+  const ankleGapY = Math.abs(landmarks[LEFT_ANKLE].y - landmarks[RIGHT_ANKLE].y);
+  const footToShoulder = ankleGapX / shoulderWidth;
+
+  // ----- DISQUALIFIERS -----
+
+  // 1. Wicketkeeper crouch — knees deeply bent (< 135°) AND hips barely above knees.
+  //    The keeper's torso is compact: hips fold down over knees so the vertical
+  //    distance from hip to knee is small relative to body height.
+  const leftHipToKneeY = Math.abs(landmarks[LEFT_HIP].y - landmarks[LEFT_KNEE].y);
+  const rightHipToKneeY = Math.abs(landmarks[RIGHT_HIP].y - landmarks[RIGHT_KNEE].y);
+  const minHipToKneeRatio = Math.min(leftHipToKneeY, rightHipToKneeY) / bodyHeight;
+  if (minKnee < 135 && minHipToKneeRatio < 0.22) {
+    return {
+      score: 0,
+      reasons: [`wicketkeeper crouch (knee=${minKnee.toFixed(0)}°, hipToKnee=${minHipToKneeRatio.toFixed(2)})`],
+      disqualified: true,
+      disqualifier: "wicketkeeper_crouch",
+    };
+  }
+
+  // 2. Bowler mid-delivery — the bowling arm is raised well above the head.
+  //    A batter in their stance never has wrists more than ~1 torso above shoulders.
+  if (topWristRel > 1.6) {
+    return {
+      score: 0,
+      reasons: [`bowler delivery arm raised (topWristRel=${topWristRel.toFixed(2)})`],
+      disqualified: true,
+      disqualifier: "bowler_arm_raised",
+    };
+  }
+
+  // 3. Bowler gather/leap — feet vertically separated (mid-stride / airborne)
+  //    AND one knee nearly straight (driving leg). Batters stand level on both feet.
+  if (ankleGapY / bodyHeight > 0.12 && maxKnee > 165) {
+    return {
+      score: 0,
+      reasons: [`mid-stride bowler pose (ankleGapY=${(ankleGapY/bodyHeight).toFixed(2)}, maxKnee=${maxKnee.toFixed(0)}°)`],
+      disqualified: true,
+      disqualifier: "mid_stride",
+    };
+  }
+
+  // 4. Wide stride (delivery stride / lunge) — feet spread more than 3× shoulder width.
+  if (footToShoulder > 3.0) {
+    return {
+      score: 0,
+      reasons: [`wide delivery stride (footToShoulder=${footToShoulder.toFixed(2)})`],
+      disqualified: true,
+      disqualifier: "wide_stride",
+    };
+  }
+
+  // 5. Body span too small — person is too far away / cropped.
+  //    Can't reliably measure a stance.
+  if (bodyHeight < 0.18) {
+    return {
+      score: 0,
+      reasons: [`body too small in frame (bodyHeight=${bodyHeight.toFixed(2)})`],
+      disqualified: true,
+      disqualifier: "body_too_small",
+    };
+  }
+
+  // 6. Upside-down / non-standing — shoulders should be above hips which should
+  //    be above ankles (remember: y grows downward in image space).
+  if (!(midShoulderY < midHipY - 0.02 && midHipY < midAnkleY - 0.02)) {
+    return {
+      score: 0,
+      reasons: ["not standing upright (shoulders/hips/ankles misordered)"],
+      disqualified: true,
+      disqualifier: "not_upright",
+    };
+  }
+
+  // ----- REQUIRED BATTER SIGNAL -----
+  // A batter is distinguished from other upright standing people (umpire,
+  // fielder, drinks-runner) by how they hold their hands: either both wrists
+  // close together on the bat, OR both wrists raised in front of the body
+  // at similar height. Without at least one of these, we cannot call this
+  // person a batter regardless of their legs/torso posture.
+  const wristGap = distance(landmarks[LEFT_WRIST], landmarks[RIGHT_WRIST]);
+  const hasTwoHandedGrip = wristGap / shoulderWidth < 0.7;
+  const wristsInBatterRange = topWristRel > -0.25 && topWristRel < 1.2;
+  // Wrists must be at similar height (both on bat). If one is much higher
+  // than the other the person is pointing, fielding, or bowling.
+  const leftWristY = landmarks[LEFT_WRIST].y;
+  const rightWristY = landmarks[RIGHT_WRIST].y;
+  const wristHeightDiff = Math.abs(leftWristY - rightWristY) / torsoHeight;
+  const wristsAtSimilarHeight = wristHeightDiff < 0.5;
+
+  if (!hasTwoHandedGrip && !(wristsInBatterRange && wristsAtSimilarHeight)) {
+    return {
+      score: 0,
+      reasons: [`no batter grip signal (grip=${hasTwoHandedGrip}, range=${wristsInBatterRange}, level=${wristsAtSimilarHeight})`],
+      disqualified: true,
+      disqualifier: "no_batter_grip",
+    };
+  }
+
+  // ----- POSITIVE SCORING (out of 100) -----
+  let score = 0;
+
+  // (a) Upright knees in batter range 140-178° — batters have a slight bend, not a crouch.
+  if (minKnee >= 140 && minKnee <= 178) {
+    score += 25;
+    reasons.push(`upright knees (${minKnee.toFixed(0)}°)`);
+  } else if (minKnee >= 125 && minKnee < 140) {
+    score += 12;
+    reasons.push(`slight crouch knees (${minKnee.toFixed(0)}°)`);
+  }
+
+  // (b) Wrists in batter range — above waist but not above head.
+  if (wristsInBatterRange) {
+    score += 20;
+    reasons.push(`wrists in batter range (${topWristRel.toFixed(2)})`);
+  }
+
+  // (c) Two-handed grip — the wrists are close together (both on the bat).
+  if (hasTwoHandedGrip) {
+    score += 15;
+    reasons.push(`two-handed grip (wristGap=${(wristGap/shoulderWidth).toFixed(2)})`);
+  }
+
+  // (d) Feet shoulder-width apart (0.6-2.4× shoulder width) — a proper batting base.
+  if (footToShoulder >= 0.6 && footToShoulder <= 2.4) {
+    score += 15;
+    reasons.push(`shoulder-width feet (${footToShoulder.toFixed(2)})`);
+  }
+
+  // (e) Body mostly vertical — head above shoulders above hips above ankles.
+  const nose = landmarks[NOSE];
+  if (nose.y < midShoulderY - 0.02) {
+    score += 10;
+    reasons.push("head above shoulders");
+  }
+
+  // (f) Ankles roughly level (not mid-stride).
+  if (ankleGapY / bodyHeight < 0.08) {
+    score += 10;
+    reasons.push("ankles level");
+  }
+
+  // (g) Body fills a reasonable portion of the frame.
+  if (bodyHeight > 0.3) {
+    score += 5;
+    reasons.push("good body framing");
+  }
+
+  return { score, reasons, disqualified: false, disqualifier: null };
+}
+
+export interface BatsmanSelection {
+  index: number;
+  landmarks: Landmark[] | null;
+  score: number;
+  reason: string;
+  rejected: { index: number; reason: string }[];
+}
+
+/**
+ * Pick the most batter-like person out of MediaPipe's multi-pose output.
+ * Returns `{ landmarks: null, reason }` if no candidate looks like a batter.
+ */
+export function selectBatsman(candidates: Landmark[][]): BatsmanSelection {
+  if (!candidates || candidates.length === 0) {
+    return { index: -1, landmarks: null, score: 0, reason: "no people detected", rejected: [] };
+  }
+
+  const scored = candidates.map((lm, index) => ({ index, landmarks: lm, ...scoreBatsmanCandidate(lm) }));
+
+  // Keep valid (non-disqualified) candidates with score >= 40
+  const valid = scored.filter(c => !c.disqualified && c.score >= 40);
+  const rejected = scored
+    .filter(c => c.disqualified || c.score < 40)
+    .map(c => ({
+      index: c.index,
+      reason: c.disqualified ? (c.disqualifier || "disqualified") : `low batter score (${c.score})`,
+    }));
+
+  if (valid.length === 0) {
+    const bestRejected = scored.reduce((a, b) => (a.score > b.score ? a : b));
+    return {
+      index: -1,
+      landmarks: null,
+      score: bestRejected.score,
+      reason: bestRejected.disqualified
+        ? `no batter detected — closest pose looked like a ${bestRejected.disqualifier?.replace(/_/g, " ")}`
+        : "no batter detected — no one in a batting stance",
+      rejected,
+    };
+  }
+
+  // Highest-scoring valid candidate wins
+  const best = valid.reduce((a, b) => (a.score > b.score ? a : b));
+  return {
+    index: best.index,
+    landmarks: best.landmarks,
+    score: best.score,
+    reason: best.reasons.join(", "),
+    rejected,
+  };
+}
+
 // Pro reference ranges (based on analysis of professional stances)
 const PRO_RANGES = {
   kneeAngle: { min: 150, max: 170, label: "Sachin & Kohli keep a slight knee bend (150-170°) for quick movement" },
