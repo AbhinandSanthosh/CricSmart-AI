@@ -123,20 +123,37 @@ def serve():
             self.last_pos = (int(pred.flat[0]), int(pred.flat[1]))
             return self.last_pos
 
-    def calculate_speed(ball_trail, px_to_meter, fps=30):
-        if len(ball_trail) < 5:
+    def calculate_speed(ball_trail_with_frames, meters_per_pixel, fps=30):
+        """
+        ball_trail_with_frames: list of (frame_idx, x, y) tuples
+        Uses actual frame deltas so gaps don't inflate speed.
+        """
+        if len(ball_trail_with_frames) < 5:
             return 0.0
         speeds = []
-        for i in range(1, len(ball_trail)):
-            dx = ball_trail[i][0] - ball_trail[i-1][0]
-            dy = ball_trail[i][1] - ball_trail[i-1][1]
+        for i in range(1, len(ball_trail_with_frames)):
+            f0, x0, y0 = ball_trail_with_frames[i-1]
+            f1, x1, y1 = ball_trail_with_frames[i]
+            frame_gap = max(1, f1 - f0)
+            dx = x1 - x0
+            dy = y1 - y0
             dist_px = np.sqrt(dx**2 + dy**2)
-            dist_m = dist_px * px_to_meter
-            speed_ms = dist_m * fps
-            speeds.append(speed_ms * 3.6)
+            dist_m = dist_px * meters_per_pixel
+            time_s = frame_gap / fps
+            if time_s <= 0:
+                continue
+            speed_ms = dist_m / time_s
+            speed_kmh = speed_ms * 3.6
+            # Filter outliers: cricket balls rarely exceed 170 km/h or go below 40 km/h in a delivery
+            if 40 <= speed_kmh <= 170:
+                speeds.append(speed_kmh)
+        if not speeds:
+            return 0.0
         speeds.sort()
+        # Trim extreme values
         trim = max(1, len(speeds)//5)
-        return np.mean(speeds[trim:-trim]) if len(speeds) > 2*trim else np.mean(speeds)
+        trimmed = speeds[trim:-trim] if len(speeds) > 2*trim else speeds
+        return float(np.mean(trimmed))
 
     def classify_shot(bounce_point, ground_y):
         if not bounce_point:
@@ -267,14 +284,19 @@ def serve():
 
             delivery = max(chains, key=len) if chains else raw_detections
 
-            # Kalman smooth
+            # Kalman smooth, keeping frame indices
             tracker = BallTracker()
-            ball_trail = []
+            ball_trail_frames = []  # list of (frame_idx, x, y)
+            ball_trail = []         # list of (x, y) for backward compat
             for d in delivery:
+                frame_idx = d[0]
                 t = tracker.update((float(d[1]), float(d[2])))
-                if t: ball_trail.append(t)
+                if t:
+                    ball_trail.append(t)
+                    ball_trail_frames.append((frame_idx, t[0], t[1]))
             if len(ball_trail) < 3:
                 ball_trail = [(d[1], d[2]) for d in delivery]
+                ball_trail_frames = [(d[0], d[1], d[2]) for d in delivery]
 
             # Bounce detection
             bounce_idx = len(ball_trail) // 2
@@ -285,7 +307,7 @@ def serve():
                         bounce_idx = i
                         break
 
-            speed = calculate_speed(ball_trail, pixels_per_meter, fps)
+            speed = calculate_speed(ball_trail_frames, pixels_per_meter, fps)
             shot_type = classify_shot(ball_trail[bounce_idx], ground_y)
 
             stump_margin = int(frame_w * 0.06)
