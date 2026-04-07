@@ -271,7 +271,7 @@ def serve():
             tracker = BallTracker()
             ball_trail = []
             for d in delivery:
-                t = tracker.update((float(d.flat[1]), float(d.flat[2])))
+                t = tracker.update((float(d[1]), float(d[2])))
                 if t: ball_trail.append(t)
             if len(ball_trail) < 3:
                 ball_trail = [(d[1], d[2]) for d in delivery]
