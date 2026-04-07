@@ -66,7 +66,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <aside className="cs-sidebar hidden md:flex flex-col">
         {/* Brand */}
         <div className="cs-brand">
-          CRIC<span>EYE</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/criceye-logo.png" alt="CricEye" className="cs-brand-logo" />
         </div>
 
         {/* Nav */}

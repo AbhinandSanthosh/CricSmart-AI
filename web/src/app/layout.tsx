@@ -17,6 +17,19 @@ const montserrat = Montserrat({
 export const metadata: Metadata = {
   title: "CricEye AI",
   description: "AI-powered cricket training platform",
+  // Next.js 15 picks up app/favicon.ico, app/icon.png and app/apple-icon.png
+  // automatically. We add explicit metadata for OG/social previews.
+  openGraph: {
+    title: "CricEye AI",
+    description: "Detect. Analyse. Improve. — AI-powered cricket training platform",
+    images: ["/criceye-logo.png"],
+  },
+  twitter: {
+    card: "summary",
+    title: "CricEye AI",
+    description: "Detect. Analyse. Improve. — AI-powered cricket training platform",
+    images: ["/criceye-logo.png"],
+  },
 };
 
 export default function RootLayout({
