@@ -110,18 +110,19 @@ export function analyzeStance(landmarks: Landmark[]): AnalysisResult {
   const rightElbowAngle = angleBetween(landmarks[RIGHT_SHOULDER], landmarks[RIGHT_ELBOW], landmarks[RIGHT_WRIST]);
   const topElbowAngle = Math.max(leftElbowAngle, rightElbowAngle);
 
-  // Classify backlift position:
-  // - active: wrists at or above shoulders (bat lifted and cocked)
-  // - ready: wrists near waist/hips (bat grounded or tapped — pre-delivery ready position)
-  // - cramped: wrists very low AND elbow collapsed (poor posture)
-  const activeBacklift = topWristRel > 0.1 && topElbowAngle >= 90;
-  const readyPosition = topWristRel > -0.6 && topElbowAngle >= 60;  // wrists around hip level
-  const crampedBacklift = !activeBacklift && !readyPosition;
+  // Classify backlift position — only two valid states:
+  // - active: wrists clearly above shoulders (bat lifted high and cocked)
+  // - ready: anything else that's a normal batting stance (bat at any position from
+  //   shoulder-level down to grounded, including Kohli/Dravid/Smith tap style).
+  // MediaPipe cannot see the bat itself, so we shouldn't penalize a grounded bat.
+  // Every natural batting stance is valid — we only recognize "active" vs "ready".
+  const activeBacklift = topWristRel > 0.15 && topElbowAngle >= 85;
 
   if (activeBacklift) {
     metrics.push({ name: "Backlift", value: `${topElbowAngle.toFixed(0)}°`, status: "good", feedback: "Excellent active backlift! Your bat is raised and ready — you'll generate great power through the shot.", tip: PRO_RANGES.backliftAngle.label, deduction: 0 });
-  } else if (readyPosition) {
-    // Bat grounded / tapped / ready position — a valid professional technique, no deduction
+  } else {
+    // Ready position — bat grounded, tapped, or held low pre-delivery.
+    // This is a valid professional technique (Kohli, Dravid, Smith). Zero deduction.
     metrics.push({
       name: "Backlift",
       value: "Ready position",
@@ -130,11 +131,6 @@ export function analyzeStance(landmarks: Landmark[]): AnalysisResult {
       tip: "Pro tip: grounded bat is perfectly fine pre-delivery. Focus on a straight, controlled backlift when the bowler loads up.",
       deduction: 0,
     });
-  } else {
-    // Only deduct if the posture is genuinely cramped/awkward (arms collapsed AND very low)
-    const ded = 10;
-    totalDeduction += ded;
-    metrics.push({ name: "Backlift", value: `${topElbowAngle.toFixed(0)}°`, status: "warning", feedback: "Your arms look cramped against your body. Give your bat room to swing freely.", tip: "Keep your top hand away from your body with a slight gap. " + PRO_RANGES.backliftAngle.label, deduction: ded });
   }
 
   // 3. Head & Eye Level (CRITICAL — eyes must be parallel/level)
@@ -185,14 +181,14 @@ export function analyzeStance(landmarks: Landmark[]): AnalysisResult {
   // Combined: hip stability matters most (70%), head forward-lean is secondary (30%)
   const combinedLean = 0.7 * hipLean + 0.3 * headLean;
 
-  if (combinedLean < 0.18) {
+  if (combinedLean < 0.28) {
     metrics.push({ name: "Balance", value: "Centered", status: "good", feedback: "Your weight is evenly distributed and hips are stable over your base — great balance for playing any shot.", tip: PRO_RANGES.headOffset.label, deduction: 0 });
-  } else if (combinedLean < 0.32) {
-    const ded = 8;
+  } else if (combinedLean < 0.45) {
+    const ded = 6;
     totalDeduction += ded;
     metrics.push({ name: "Balance", value: "Slight lean", status: "warning", feedback: "You're leaning slightly to one side. A small lean forward over the front foot is fine, but watch you don't tip too far.", tip: "Keep your hips stable over your feet. A small forward lean into the shot is OK.", deduction: ded });
   } else {
-    const ded = 15;
+    const ded = 12;
     totalDeduction += ded;
     metrics.push({ name: "Balance", value: "Off-balance", status: "critical", feedback: "You're significantly off-balance — hips are not stable over your feet. This makes it very hard to play straight.", tip: "Reset your stance. " + PRO_RANGES.headOffset.label, deduction: ded });
   }

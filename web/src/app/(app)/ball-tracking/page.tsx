@@ -17,6 +17,12 @@ interface TrackingResult {
   releasePoint?: [number, number];
   pitchPoint?: [number, number];
   impactPoint?: [number, number];
+  bounceIndex?: number;
+  trajectory?: [number, number][];
+  videoWidth?: number;
+  videoHeight?: number;
+  stumpCenterX?: number;
+  groundY?: number;
 }
 
 function formatTime(s: number) {
@@ -55,6 +61,7 @@ export default function BallTrackingPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const liveVideoRef = useRef<HTMLVideoElement>(null);
+  const trajectoryCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // Trim state
   const [duration, setDuration] = useState(0);
@@ -76,6 +83,166 @@ export default function BallTrackingPage() {
       if (liveStream) liveStream.getTracks().forEach((t) => t.stop());
     };
   }, [liveStream]);
+
+  // Draw ball trajectory on a canvas with the video's first frame as background
+  useEffect(() => {
+    if (!result?.trajectory || result.trajectory.length < 2 || !videoUrl) return;
+    const canvas = trajectoryCanvasRef.current;
+    if (!canvas) return;
+
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.crossOrigin = "anonymous";
+    video.src = videoUrl;
+
+    const drawFrame = () => {
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      if (!vw || !vh) return;
+
+      canvas.width = vw;
+      canvas.height = vh;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      // Draw the first frame as background
+      ctx.drawImage(video, 0, 0, vw, vh);
+
+      const trail = result.trajectory!;
+      const bounceIdx = result.bounceIndex ?? Math.floor(trail.length / 2);
+
+      // Dim the background slightly to make the trajectory pop
+      ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+      ctx.fillRect(0, 0, vw, vh);
+      ctx.drawImage(video, 0, 0, vw, vh);
+      ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+      ctx.fillRect(0, 0, vw, vh);
+
+      // Draw pitch reference line (ground)
+      if (result.groundY) {
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 6]);
+        ctx.beginPath();
+        ctx.moveTo(0, result.groundY);
+        ctx.lineTo(vw, result.groundY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Draw trajectory — two segments:
+      // 1) Release to bounce (cyan, pre-pitch)
+      // 2) Bounce to impact (yellow/red, post-pitch)
+      const scale = Math.max(vw, vh) / 800;
+
+      // Pre-bounce segment (cyan)
+      if (bounceIdx > 0) {
+        ctx.strokeStyle = "#00d4ff";
+        ctx.lineWidth = 5 * scale;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.shadowColor = "rgba(0, 212, 255, 0.8)";
+        ctx.shadowBlur = 16;
+        ctx.beginPath();
+        ctx.moveTo(trail[0][0], trail[0][1]);
+        for (let i = 1; i <= bounceIdx; i++) {
+          ctx.lineTo(trail[i][0], trail[i][1]);
+        }
+        ctx.stroke();
+      }
+
+      // Post-bounce segment (red/yellow)
+      if (bounceIdx < trail.length - 1) {
+        ctx.strokeStyle = result.hitStumps ? "#ff2a4b" : "#facc15";
+        ctx.lineWidth = 5 * scale;
+        ctx.shadowColor = result.hitStumps ? "rgba(255, 42, 75, 0.8)" : "rgba(250, 204, 21, 0.8)";
+        ctx.shadowBlur = 16;
+        ctx.beginPath();
+        ctx.moveTo(trail[bounceIdx][0], trail[bounceIdx][1]);
+        for (let i = bounceIdx + 1; i < trail.length; i++) {
+          ctx.lineTo(trail[i][0], trail[i][1]);
+        }
+        ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+
+      // Draw ball positions as small dots along the path
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      for (const [x, y] of trail) {
+        ctx.beginPath();
+        ctx.arc(x, y, 3 * scale, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Helper to draw a labeled key point
+      const labelPoint = (x: number, y: number, label: string, color: string) => {
+        // Outer glow ring
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3 * scale;
+        ctx.beginPath();
+        ctx.arc(x, y, 14 * scale, 0, Math.PI * 2);
+        ctx.stroke();
+        // Solid center
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, 6 * scale, 0, Math.PI * 2);
+        ctx.fill();
+        // Label background
+        ctx.font = `bold ${14 * scale}px sans-serif`;
+        const textW = ctx.measureText(label).width;
+        const padding = 6 * scale;
+        const labelX = x + 18 * scale;
+        const labelY = y - 10 * scale;
+        ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+        ctx.fillRect(labelX, labelY - 14 * scale, textW + padding * 2, 20 * scale);
+        // Label text
+        ctx.fillStyle = color;
+        ctx.fillText(label, labelX + padding, labelY);
+      };
+
+      // Release point (start)
+      labelPoint(trail[0][0], trail[0][1], "RELEASE", "#00d4ff");
+      // Pitch point (bounce)
+      labelPoint(trail[bounceIdx][0], trail[bounceIdx][1], "PITCH", "#ffa500");
+      // Impact point (end)
+      labelPoint(
+        trail[trail.length - 1][0],
+        trail[trail.length - 1][1],
+        "IMPACT",
+        result.hitStumps ? "#ff2a4b" : "#22c55e"
+      );
+
+      // Stump indicator line if detected
+      if (result.stumpCenterX && result.groundY) {
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+        ctx.lineWidth = 2 * scale;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(result.stumpCenterX, result.groundY - 60 * scale);
+        ctx.lineTo(result.stumpCenterX, result.groundY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    };
+
+    const onLoaded = () => {
+      // Seek to first frame
+      video.currentTime = 0.01;
+    };
+    const onSeeked = () => {
+      drawFrame();
+    };
+
+    video.addEventListener("loadedmetadata", onLoaded);
+    video.addEventListener("seeked", onSeeked);
+    video.load();
+
+    return () => {
+      video.removeEventListener("loadedmetadata", onLoaded);
+      video.removeEventListener("seeked", onSeeked);
+    };
+  }, [result, videoUrl]);
 
   function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -254,6 +421,12 @@ export default function BallTrackingPage() {
               releasePoint: data.release_point || undefined,
               pitchPoint: data.pitch_point || undefined,
               impactPoint: data.impact_point || undefined,
+              bounceIndex: data.bounce_index,
+              trajectory: data.trajectory || undefined,
+              videoWidth: data.video_width || undefined,
+              videoHeight: data.video_height || undefined,
+              stumpCenterX: data.stump_center_x || undefined,
+              groundY: data.ground_y || undefined,
             });
             setAnalyzing(false);
             return;
@@ -503,6 +676,48 @@ export default function BallTrackingPage() {
                     autoPlay
                     style={{ width: '100%', maxHeight: 500, objectFit: 'contain', background: '#000', display: 'block' }}
                   />
+                </div>
+              )}
+
+              {/* Ball Trajectory Visualization — canvas overlay on first frame */}
+              {result.trajectory && result.trajectory.length >= 2 && (
+                <div className="panel" style={{ gridColumn: 'span 12', padding: 24 }}>
+                  <div className="panel-header">
+                    <span className="label-bracket" style={{ color: '#00d4ff' }}>ball_trajectory</span>
+                    <h2 className="panel-title">TRAJECTORY MAP</h2>
+                  </div>
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
+                    Traced ball path from release to impact — {result.trajectory.length} tracking points
+                  </p>
+                  <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: '#000' }}>
+                    <canvas
+                      ref={trajectoryCanvasRef}
+                      style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 600, objectFit: 'contain' }}
+                    />
+                  </div>
+                  {/* Legend */}
+                  <div style={{ display: 'flex', gap: 16, marginTop: 14, flexWrap: 'wrap', fontSize: 11, color: 'var(--text-muted)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 20, height: 3, background: '#00d4ff', borderRadius: 2 }} />
+                      Pre-bounce path
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 20, height: 3, background: result.hitStumps ? '#ff2a4b' : '#facc15', borderRadius: 2 }} />
+                      Post-bounce path
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#00d4ff' }} />
+                      Release
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ffa500' }} />
+                      Pitch (bounce)
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: result.hitStumps ? '#ff2a4b' : '#22c55e' }} />
+                      Impact
+                    </div>
+                  </div>
                 </div>
               )}
 

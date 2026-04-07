@@ -372,6 +372,10 @@ def serve():
             confidence = min(95, len(ball_trail) * 3 + 20)
             if stump_detected: confidence = min(98, confidence + 10)
 
+            # Full smoothed trajectory for frontend visualization.
+            # Coordinates are in pixel-space of the original video frame.
+            trajectory = [[int(p[0]), int(p[1])] for p in ball_trail]
+
             return {
                 "speed_kmh": round(speed, 1),
                 "shot_type": shot_type,
@@ -385,6 +389,12 @@ def serve():
                 "release_point": list(ball_trail[0]),
                 "pitch_point": list(ball_trail[bounce_idx]),
                 "impact_point": list(ball_trail[-1]),
+                "bounce_index": bounce_idx,
+                "trajectory": trajectory,
+                "video_width": frame_w,
+                "video_height": frame_h,
+                "stump_center_x": stump_center_x,
+                "ground_y": ground_y,
             }
         finally:
             os.unlink(tmp_path)
