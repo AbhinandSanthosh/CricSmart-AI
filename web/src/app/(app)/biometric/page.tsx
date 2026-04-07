@@ -131,6 +131,24 @@ export default function BiometricPage() {
     };
   }, [stream]);
 
+  // Draw skeleton on canvas after landmarks are set (canvas only exists in DOM after re-render)
+  useEffect(() => {
+    if (!landmarks || !result || !imageUrl) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0);
+      drawColoredSkeleton(ctx, landmarks, img.width, img.height, result);
+    };
+    img.src = imageUrl;
+  }, [landmarks, result, imageUrl]);
+
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -221,16 +239,7 @@ export default function BiometricPage() {
 
       const analysis = analyzeStance(lm);
       setResult(analysis);
-
-      // Draw annotated image
-      const canvas = canvasRef.current;
-      if (canvas) {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext("2d")!;
-        ctx.drawImage(img, 0, 0);
-        drawColoredSkeleton(ctx, lm, img.width, img.height, analysis);
-      }
+      // Canvas drawing happens in useEffect after re-render
 
       poseLandmarker.close();
     } catch (err) {
