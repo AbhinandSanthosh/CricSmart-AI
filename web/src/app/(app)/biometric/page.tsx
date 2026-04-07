@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Upload, Camera, RotateCcw, CheckCircle, AlertTriangle, XCircle, Zap } from "lucide-react";
-import { analyzeStance, CONNECTION_GROUPS, KEY_JOINTS, type AnalysisResult, type Landmark } from "@/lib/pose-analysis";
+import { analyzeStance, selectBatsman, CONNECTION_GROUPS, KEY_JOINTS, type AnalysisResult, type Landmark } from "@/lib/pose-analysis";
 
 type Mode = "upload" | "camera";
 
@@ -216,7 +216,9 @@ export default function BiometricPage() {
           delegate: "GPU",
         },
         runningMode: "IMAGE",
-        numPoses: 1,
+        // Detect up to 5 people — the frame often contains the keeper, bowler,
+        // umpire, etc. We filter for the actual batter below.
+        numPoses: 5,
       });
 
       const img = new Image();
@@ -234,7 +236,17 @@ export default function BiometricPage() {
         return;
       }
 
-      const lm = poseResult.landmarks[0];
+      // Pick the most batter-like person. Rejects wicketkeepers (crouched),
+      // bowlers (arm raised / mid-stride), umpires, and other fielders.
+      const selection = selectBatsman(poseResult.landmarks);
+      if (!selection.landmarks) {
+        setError(`Couldn't find a batter in this photo — ${selection.reason}. Try a photo where the batter is clearly in their stance.`);
+        setAnalyzing(false);
+        poseLandmarker.close();
+        return;
+      }
+
+      const lm = selection.landmarks;
       setLandmarks(lm);
 
       const analysis = analyzeStance(lm);
