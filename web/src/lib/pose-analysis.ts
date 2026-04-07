@@ -95,30 +95,46 @@ export function analyzeStance(landmarks: Landmark[]): AnalysisResult {
   }
 
   // 2. Backlift Detection (wrist height relative to shoulders)
+  // Note: MediaPipe can't detect the bat itself, so we infer backlift from wrist/elbow position.
+  // A pre-delivery "ready position" with the bat grounded (Kohli, Dravid, Smith style) is a
+  // valid professional stance and should NOT be penalized.
   const midShoulderY = (landmarks[LEFT_SHOULDER].y + landmarks[RIGHT_SHOULDER].y) / 2;
-  const leftWristHeight = midShoulderY - landmarks[LEFT_WRIST].y;
-  const rightWristHeight = midShoulderY - landmarks[RIGHT_WRIST].y;
-  const topWristHeight = Math.max(leftWristHeight, rightWristHeight);
+  const midHipY = (landmarks[LEFT_HIP].y + landmarks[RIGHT_HIP].y) / 2;
+  const torsoHeight = Math.abs(midHipY - midShoulderY) || 0.2;  // scale reference
+  // Wrist vertical position relative to shoulders, normalized by torso height (scale-invariant)
+  const leftWristRel = (midShoulderY - landmarks[LEFT_WRIST].y) / torsoHeight;
+  const rightWristRel = (midShoulderY - landmarks[RIGHT_WRIST].y) / torsoHeight;
+  const topWristRel = Math.max(leftWristRel, rightWristRel);
   // Also check elbow angle for backlift
   const leftElbowAngle = angleBetween(landmarks[LEFT_SHOULDER], landmarks[LEFT_ELBOW], landmarks[LEFT_WRIST]);
   const rightElbowAngle = angleBetween(landmarks[RIGHT_SHOULDER], landmarks[RIGHT_ELBOW], landmarks[RIGHT_WRIST]);
   const topElbowAngle = Math.max(leftElbowAngle, rightElbowAngle);
 
-  // Wrist above shoulder = good backlift, at shoulder = ok, below = bat grounded
-  const batGrounded = topWristHeight < -0.05; // wrist well below shoulders
-  const backliftGood = topWristHeight > 0.02 && topElbowAngle >= 100;
+  // Classify backlift position:
+  // - active: wrists at or above shoulders (bat lifted and cocked)
+  // - ready: wrists near waist/hips (bat grounded or tapped — pre-delivery ready position)
+  // - cramped: wrists very low AND elbow collapsed (poor posture)
+  const activeBacklift = topWristRel > 0.1 && topElbowAngle >= 90;
+  const readyPosition = topWristRel > -0.6 && topElbowAngle >= 60;  // wrists around hip level
+  const crampedBacklift = !activeBacklift && !readyPosition;
 
-  if (backliftGood) {
-    metrics.push({ name: "Backlift", value: `${topElbowAngle.toFixed(0)}°`, status: "good", feedback: "Good backlift! Your bat is raised and ready — you'll generate power through the shot.", tip: PRO_RANGES.backliftAngle.label, deduction: 0 });
-  } else if (batGrounded) {
-    // Bat on ground is OK per user — just note it, small deduction
-    const ded = 5;
-    totalDeduction += ded;
-    metrics.push({ name: "Backlift", value: "Bat grounded", status: "warning", feedback: "Your bat is resting near the ground. This is fine for some techniques (like Dravid's tap), but make sure your head and eyes are perfectly level to compensate.", tip: "Keeping the bat down is OK if your head position is correct. Focus on a straight backlift when the bowler runs in.", deduction: ded });
+  if (activeBacklift) {
+    metrics.push({ name: "Backlift", value: `${topElbowAngle.toFixed(0)}°`, status: "good", feedback: "Excellent active backlift! Your bat is raised and ready — you'll generate great power through the shot.", tip: PRO_RANGES.backliftAngle.label, deduction: 0 });
+  } else if (readyPosition) {
+    // Bat grounded / tapped / ready position — a valid professional technique, no deduction
+    metrics.push({
+      name: "Backlift",
+      value: "Ready position",
+      status: "good",
+      feedback: "Bat in ready position — classic pre-delivery stance like Kohli, Dravid, and Steve Smith. Your backlift will come up smoothly as the bowler runs in.",
+      tip: "Pro tip: grounded bat is perfectly fine pre-delivery. Focus on a straight, controlled backlift when the bowler loads up.",
+      deduction: 0,
+    });
   } else {
-    const ded = 12;
+    // Only deduct if the posture is genuinely cramped/awkward (arms collapsed AND very low)
+    const ded = 10;
     totalDeduction += ded;
-    metrics.push({ name: "Backlift", value: `${topElbowAngle.toFixed(0)}°`, status: "warning", feedback: "Your backlift is too low or cramped. The bat needs to come up higher for power.", tip: "Lift your hands to shoulder height with wrists cocked. " + PRO_RANGES.backliftAngle.label, deduction: ded });
+    metrics.push({ name: "Backlift", value: `${topElbowAngle.toFixed(0)}°`, status: "warning", feedback: "Your arms look cramped against your body. Give your bat room to swing freely.", tip: "Keep your top hand away from your body with a slight gap. " + PRO_RANGES.backliftAngle.label, deduction: ded });
   }
 
   // 3. Head & Eye Level (CRITICAL — eyes must be parallel/level)
@@ -145,25 +161,40 @@ export function analyzeStance(landmarks: Landmark[]): AnalysisResult {
     metrics.push({ name: "Head & Eyes Level", value: "Tilted", status: "critical", feedback: "Your head is significantly tilted! You're seeing the ball at an angle, which makes it very hard to judge line and length accurately.", tip: "This is the #1 thing to fix. " + PRO_RANGES.eyeLevel.label, deduction: ded });
   }
 
-  // 4. Balance — Head over Base
+  // 4. Balance — Hip stability over feet base (NOT head over feet)
+  // In a proper side-on cricket stance, the batsman leans FORWARD over the front foot,
+  // so the head (nose) is naturally offset from the foot center. The real measure of
+  // balance is whether the HIPS (center of mass) are stable over the feet, and whether
+  // the head isn't dramatically offset from the hips (upper body vertical stability).
   const midFoot = {
     x: (landmarks[LEFT_ANKLE].x + landmarks[RIGHT_ANKLE].x) / 2,
     y: (landmarks[LEFT_ANKLE].y + landmarks[RIGHT_ANKLE].y) / 2,
     z: 0,
     visibility: 1,
   };
-  const headOffset = Math.abs(nose.x - midFoot.x);
+  const hipCenterX = (landmarks[LEFT_HIP].x + landmarks[RIGHT_HIP].x) / 2;
+  const shoulderY = (landmarks[LEFT_SHOULDER].y + landmarks[RIGHT_SHOULDER].y) / 2;
+  // Body height (shoulders to ankles) — used as scale reference so the metric is
+  // invariant to how zoomed-in the image is.
+  const bodyHeight = Math.abs(midFoot.y - shoulderY) || 0.5;
 
-  if (headOffset < 0.06) {
-    metrics.push({ name: "Balance", value: "Centered", status: "good", feedback: "Your weight is evenly distributed and head is over your base — great balance for playing any shot.", tip: PRO_RANGES.headOffset.label, deduction: 0 });
-  } else if (headOffset < 0.12) {
-    const ded = 10;
+  // Hip offset from feet — hips should be nearly vertically above feet (core stability)
+  const hipLean = Math.abs(hipCenterX - midFoot.x) / bodyHeight;
+  // Head offset from hips — head can lean forward in a cricket stance, so this is lenient
+  const headLean = Math.abs(nose.x - hipCenterX) / bodyHeight;
+  // Combined: hip stability matters most (70%), head forward-lean is secondary (30%)
+  const combinedLean = 0.7 * hipLean + 0.3 * headLean;
+
+  if (combinedLean < 0.18) {
+    metrics.push({ name: "Balance", value: "Centered", status: "good", feedback: "Your weight is evenly distributed and hips are stable over your base — great balance for playing any shot.", tip: PRO_RANGES.headOffset.label, deduction: 0 });
+  } else if (combinedLean < 0.32) {
+    const ded = 8;
     totalDeduction += ded;
-    metrics.push({ name: "Balance", value: "Slight lean", status: "warning", feedback: "You're leaning slightly to one side. This can pull you off balance when the ball moves.", tip: "Keep your nose roughly above the middle of your feet. Distribute weight 50-50.", deduction: ded });
+    metrics.push({ name: "Balance", value: "Slight lean", status: "warning", feedback: "You're leaning slightly to one side. A small lean forward over the front foot is fine, but watch you don't tip too far.", tip: "Keep your hips stable over your feet. A small forward lean into the shot is OK.", deduction: ded });
   } else {
-    const ded = 20;
+    const ded = 15;
     totalDeduction += ded;
-    metrics.push({ name: "Balance", value: "Off-balance", status: "critical", feedback: "You're significantly off-balance — leaning too far to one side. This makes it very hard to play straight.", tip: "Reset your stance. " + PRO_RANGES.headOffset.label, deduction: ded });
+    metrics.push({ name: "Balance", value: "Off-balance", status: "critical", feedback: "You're significantly off-balance — hips are not stable over your feet. This makes it very hard to play straight.", tip: "Reset your stance. " + PRO_RANGES.headOffset.label, deduction: ded });
   }
 
   // 5. Shoulder Alignment (side-on vs chest-on)
