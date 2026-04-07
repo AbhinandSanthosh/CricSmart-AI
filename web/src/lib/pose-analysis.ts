@@ -79,8 +79,12 @@ export interface BatsmanScore {
 export function scoreBatsmanCandidate(landmarks: Landmark[]): BatsmanScore {
   const reasons: string[] = [];
 
-  // Guard: require the core landmarks we rely on. If MediaPipe didn't see the
-  // person clearly (hip/knee/shoulder invisible), they can't be a valid batter.
+  // Guard: require the core landmarks we rely on *exist*. MediaPipe's 33-point
+  // model always returns all 33 landmarks when any pose is detected, but some
+  // may be occluded. We don't gate on visibility score here because in a natural
+  // batting stance (side-on or 3/4 view) the far-side hip/knee/ankle legitimately
+  // score ~0.2-0.4 even when the pose estimate is accurate. The downstream
+  // geometric checks (crouch, stride, grip) are the real filters.
   const required = [
     LEFT_SHOULDER, RIGHT_SHOULDER,
     LEFT_HIP, RIGHT_HIP,
@@ -90,9 +94,18 @@ export function scoreBatsmanCandidate(landmarks: Landmark[]): BatsmanScore {
     NOSE,
   ];
   for (const idx of required) {
-    if (!landmarks[idx] || landmarks[idx].visibility < 0.35) {
-      return { score: 0, reasons: ["core landmarks not visible"], disqualified: true, disqualifier: "low_visibility" };
+    if (!landmarks[idx]) {
+      return { score: 0, reasons: ["core landmarks missing"], disqualified: true, disqualifier: "missing_landmarks" };
     }
+  }
+
+  // Soft visibility check: if MORE than half of the core landmarks are very
+  // weakly detected (vis < 0.1), the person isn't really in frame — they're a
+  // background figure or a partial detection. Single low-visibility joints are
+  // normal in side-on stances and must not reject the candidate.
+  const veryWeak = required.filter((idx) => landmarks[idx].visibility < 0.1).length;
+  if (veryWeak > required.length / 2) {
+    return { score: 0, reasons: [`${veryWeak}/${required.length} landmarks barely detected`], disqualified: true, disqualifier: "not_in_frame" };
   }
 
   // Basic geometry
@@ -274,37 +287,55 @@ export interface BatsmanSelection {
   rejected: { index: number; reason: string }[];
 }
 
+// Human-friendly names for each disqualifier — used in user-facing error text.
+const DISQUALIFIER_LABELS: Record<string, string> = {
+  missing_landmarks: "an incomplete pose",
+  not_in_frame: "a partial figure in the background",
+  wicketkeeper_crouch: "a wicketkeeper crouching behind the stumps",
+  bowler_arm_raised: "a bowler with their arm raised",
+  mid_stride: "a bowler mid-delivery stride",
+  wide_stride: "someone in a wide lunge",
+  body_too_small: "a figure too small in the frame",
+  not_upright: "someone not standing upright",
+  no_batter_grip: "someone without a batting grip",
+};
+
 /**
  * Pick the most batter-like person out of MediaPipe's multi-pose output.
  * Returns `{ landmarks: null, reason }` if no candidate looks like a batter.
  */
 export function selectBatsman(candidates: Landmark[][]): BatsmanSelection {
   if (!candidates || candidates.length === 0) {
-    return { index: -1, landmarks: null, score: 0, reason: "no people detected", rejected: [] };
+    return { index: -1, landmarks: null, score: 0, reason: "no people detected in the image", rejected: [] };
   }
 
   const scored = candidates.map((lm, index) => ({ index, landmarks: lm, ...scoreBatsmanCandidate(lm) }));
 
   // Keep valid (non-disqualified) candidates with score >= 40
-  const valid = scored.filter(c => !c.disqualified && c.score >= 40);
+  const valid = scored.filter((c) => !c.disqualified && c.score >= 40);
   const rejected = scored
-    .filter(c => c.disqualified || c.score < 40)
-    .map(c => ({
+    .filter((c) => c.disqualified || c.score < 40)
+    .map((c) => ({
       index: c.index,
-      reason: c.disqualified ? (c.disqualifier || "disqualified") : `low batter score (${c.score})`,
+      reason: c.disqualified ? c.disqualifier || "disqualified" : `low batter score (${c.score})`,
     }));
 
   if (valid.length === 0) {
-    const bestRejected = scored.reduce((a, b) => (a.score > b.score ? a : b));
-    return {
-      index: -1,
-      landmarks: null,
-      score: bestRejected.score,
-      reason: bestRejected.disqualified
-        ? `no batter detected — closest pose looked like a ${bestRejected.disqualifier?.replace(/_/g, " ")}`
-        : "no batter detected — no one in a batting stance",
-      rejected,
-    };
+    // Prefer a non-disqualified low-scoring pose over any disqualified one when
+    // explaining the rejection, since disqualified poses all share score=0.
+    const nonDisqualified = scored.filter((c) => !c.disqualified);
+    const best = nonDisqualified.length > 0
+      ? nonDisqualified.reduce((a, b) => (a.score > b.score ? a : b))
+      : scored.reduce((a, b) => (a.score > b.score ? a : b));
+
+    let reason: string;
+    if (best.disqualified) {
+      const label = DISQUALIFIER_LABELS[best.disqualifier || ""] || "something other than a batter";
+      reason = `closest pose looked like ${label}`;
+    } else {
+      reason = `closest pose didn't look like a batting stance (score ${best.score}/100 — ${best.reasons.join(", ") || "no batter signals"})`;
+    }
+    return { index: -1, landmarks: null, score: best.score, reason, rejected };
   }
 
   // Highest-scoring valid candidate wins
