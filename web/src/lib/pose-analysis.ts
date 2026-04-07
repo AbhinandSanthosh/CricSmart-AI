@@ -203,29 +203,38 @@ export function scoreBatsmanCandidate(landmarks: Landmark[]): BatsmanScore {
   }
 
   // ----- REQUIRED BATTER SIGNAL -----
-  // A batter is distinguished from other upright standing people (umpire,
-  // fielder, drinks-runner) by how they hold their hands: either both wrists
-  // close together on the bat, OR both wrists raised in front of the body
-  // at similar height. Without at least one of these, we cannot call this
-  // person a batter regardless of their legs/torso posture.
+  // A batter holds the bat with BOTH hands close together. The Euclidean
+  // distance between the wrists, normalized by *torso height*, distinguishes
+  // a two-handed grip from a person standing with arms at their sides.
+  //
+  // Why torso height (not shoulder width): in a side-on batting stance, the
+  // two shoulders project to nearly the same X coordinate, so shoulderWidth
+  // collapses to ~0 and any ratio against it explodes. Earlier versions used
+  // shoulder width and falsely rejected side-on batters with grounded bats
+  // (the most common batting photo composition!). Torso height (vertical
+  // shoulder→hip distance) is rotation-invariant — it stays roughly constant
+  // regardless of camera angle.
+  //
+  // The grip check works in any view (side-on, 3/4, front-on) and any bat
+  // position (grounded, tap, raised) because both wrists are physically
+  // close in 3D space whenever they're on the same bat handle.
   const wristGap = distance(landmarks[LEFT_WRIST], landmarks[RIGHT_WRIST]);
-  const hasTwoHandedGrip = wristGap / shoulderWidth < 0.7;
-  const wristsInBatterRange = topWristRel > -0.25 && topWristRel < 1.2;
-  // Wrists must be at similar height (both on bat). If one is much higher
-  // than the other the person is pointing, fielding, or bowling.
-  const leftWristY = landmarks[LEFT_WRIST].y;
-  const rightWristY = landmarks[RIGHT_WRIST].y;
-  const wristHeightDiff = Math.abs(leftWristY - rightWristY) / torsoHeight;
-  const wristsAtSimilarHeight = wristHeightDiff < 0.5;
+  const wristGapToTorso = wristGap / torsoHeight;
+  const hasTwoHandedGrip = wristGapToTorso < 0.6;
 
-  if (!hasTwoHandedGrip && !(wristsInBatterRange && wristsAtSimilarHeight)) {
+  if (!hasTwoHandedGrip) {
     return {
       score: 0,
-      reasons: [`no batter grip signal (grip=${hasTwoHandedGrip}, range=${wristsInBatterRange}, level=${wristsAtSimilarHeight})`],
+      reasons: [`hands not in a batting grip (wristGap/torso=${wristGapToTorso.toFixed(2)})`],
       disqualified: true,
       disqualifier: "no_batter_grip",
     };
   }
+
+  // Wider "batting range" for the wrists — covers grounded bats (wrists at
+  // hip level) all the way up to active backlifts (wrists above head). Used
+  // for positive scoring below; not a hard gate.
+  const wristsInBatterRange = topWristRel > -1.3 && topWristRel < 1.8;
 
   // ----- POSITIVE SCORING (out of 100) -----
   let score = 0;
@@ -246,9 +255,13 @@ export function scoreBatsmanCandidate(landmarks: Landmark[]): BatsmanScore {
   }
 
   // (c) Two-handed grip — the wrists are close together (both on the bat).
-  if (hasTwoHandedGrip) {
-    score += 15;
-    reasons.push(`two-handed grip (wristGap=${(wristGap/shoulderWidth).toFixed(2)})`);
+  // Bonus for a TIGHT grip (wrists very close), normal for a regular grip.
+  if (wristGapToTorso < 0.25) {
+    score += 20;
+    reasons.push(`tight two-handed grip (${wristGapToTorso.toFixed(2)})`);
+  } else {
+    score += 12;
+    reasons.push(`two-handed grip (${wristGapToTorso.toFixed(2)})`);
   }
 
   // (d) Feet shoulder-width apart (0.6-2.4× shoulder width) — a proper batting base.
