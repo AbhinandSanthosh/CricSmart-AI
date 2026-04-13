@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Shield, Users } from "lucide-react";
+import { useAuth } from "@/store/auth";
+import { auth } from "@/lib/firebase";
 
 interface AdminUser {
   id: number;
@@ -13,103 +15,88 @@ interface AdminUser {
 }
 
 export default function AdminPage() {
-  const [authenticated, setAuthenticated] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const { firebaseUser, initialized } = useAuth();
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error || "Login failed"); return; }
-      if (data.user?.is_admin !== 1) { setError("Access denied. Admin privileges required."); return; }
-      setAuthenticated(true);
-    } catch {
-      setError("Authentication failed");
-    }
-  }
-
+  // Check admin status on mount
   useEffect(() => {
-    if (!authenticated) return;
+    if (!initialized || !firebaseUser) return;
     let cancelled = false;
+
     (async () => {
       try {
-        const r = await fetch("/api/users");
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) { setIsAdmin(false); setLoading(false); return; }
+
+        const res = await fetch("/api/admin/check", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (!cancelled) {
+          setIsAdmin(data.isAdmin === true);
+          if (!data.isAdmin) setLoading(false);
+        }
+      } catch {
+        if (!cancelled) { setIsAdmin(false); setLoading(false); }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [initialized, firebaseUser]);
+
+  // Fetch users list once admin status is confirmed
+  useEffect(() => {
+    if (!isAdmin) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) { setLoading(false); return; }
+
+        const r = await fetch("/api/users", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const data = await r.json();
         if (!cancelled) setUsers(data.users || []);
       } catch { /* ignore */ } finally {
         if (!cancelled) setLoading(false);
       }
     })();
+
     return () => { cancelled = true; };
-  }, [authenticated]);
+  }, [isAdmin]);
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--cs-border-strong)',
-    borderRadius: 12, padding: '12px 16px', color: 'var(--text-main)', fontFamily: 'var(--font-ui)',
-    fontSize: 13, transition: 'all 0.3s',
-  };
-
-  if (!authenticated) {
+  if (!initialized || isAdmin === null) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 200px)' }}>
-        <div style={{ width: '100%', maxWidth: 400 }}>
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <Shield style={{ width: 48, height: 48, color: 'var(--cs-accent)', margin: '0 auto 16px' }} />
-            <h1 style={{ fontSize: 36, background: 'linear-gradient(180deg, #ffffff 0%, #909ab0 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.03em', fontFamily: 'var(--font-display)', fontWeight: 900, fontStyle: 'italic' }}>
-              ADMIN ACCESS
-            </h1>
-            <div className="label-bracket" style={{ marginTop: 8 }}>restricted_area</div>
+      <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-3 border-[var(--cs-accent)] border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm font-medium text-[var(--text-muted)]">Checking access...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
+        <div className="w-full max-w-[400px]">
+          <div className="text-center mb-8">
+            <Shield className="w-12 h-12 text-[var(--cs-accent)] mx-auto mb-4" />
+            <h1 className="text-4xl font-bold text-[var(--text-main)] tracking-tight">Access Denied</h1>
+            <p className="label-bracket mt-2">restricted_area</p>
           </div>
-          <div className="panel" style={{ padding: 32 }}>
+          <div className="panel p-8">
             <div className="panel-header">
-              <span className="label-bracket">authentication</span>
-              <h2 className="panel-title">VERIFY</h2>
+              <span className="label-bracket">authorization</span>
+              <h2 className="panel-title">Unauthorized</h2>
             </div>
-            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {error && (
-                <div style={{ fontSize: 13, color: 'var(--cs-danger)', background: 'rgba(255,42,75,0.08)', padding: 12, borderRadius: 12 }}>
-                  {error}
-                </div>
-              )}
-              <div>
-                <div className="label-bracket" style={{ marginBottom: 6 }}>email</div>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Admin email"
-                  required
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <div className="label-bracket" style={{ marginBottom: 6 }}>password</div>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Admin password"
-                  required
-                  style={inputStyle}
-                />
-              </div>
-              <button type="submit" className="btn btn-primary" style={{ padding: '8px 8px 8px 24px', fontSize: 14, width: '100%' }}>
-                Authenticate
-                <div className="btn-icon-circle" style={{ width: 28, height: 28 }}>
-                  <Shield style={{ width: 12, height: 12 }} />
-                </div>
-              </button>
-            </form>
+            <p className="text-sm text-[var(--text-muted)]">
+              You do not have admin privileges. Contact an administrator if you believe this is an error.
+            </p>
           </div>
         </div>
       </div>
@@ -117,62 +104,60 @@ export default function AdminPage() {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 24 }}>
-      <div style={{ gridColumn: 'span 12', padding: '20px 0' }}>
-        <div className="label-bracket" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Shield style={{ width: 14, height: 14 }} /> admin_panel
-        </div>
-        <h1 style={{ fontSize: 48, background: 'linear-gradient(180deg, #ffffff 0%, #909ab0 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.03em' }}>
-          ADMIN PANEL
-        </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: 16, marginTop: 8 }}>Manage users and platform</p>
+    <div className="grid grid-cols-12 gap-6">
+      <div className="col-span-12 py-5">
+        <p className="label-bracket mb-3 flex items-center gap-2">
+          <Shield className="w-3.5 h-3.5" /> admin_panel
+        </p>
+        <h1 className="text-4xl font-bold text-[var(--text-main)] tracking-tight">Admin Panel</h1>
+        <p className="text-[var(--text-muted)] text-base mt-2">Manage users and platform</p>
       </div>
 
-      <div className="stats-strip" style={{ gridColumn: 'span 12' }}>
+      <div className="stats-strip col-span-12">
         <div className="stat-box">
-          <div className="label-bracket"><Users style={{ width: 12, height: 12, display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />total_users</div>
+          <div className="label-bracket"><Users className="w-3 h-3 inline align-middle mr-1" />total_users</div>
           <div className="stat-val">{users.length}</div>
         </div>
         <div className="stat-box">
-          <div className="label-bracket"><Shield style={{ width: 12, height: 12, display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />admin_count</div>
+          <div className="label-bracket"><Shield className="w-3 h-3 inline align-middle mr-1" />admin_count</div>
           <div className="stat-val">{users.filter((u) => u.is_admin === 1).length}</div>
         </div>
       </div>
 
-      <div className="panel" style={{ gridColumn: 'span 12' }}>
+      <div className="panel col-span-12">
         <div className="panel-header">
           <span className="label-bracket">user_database</span>
-          <h2 className="panel-title">ALL USERS</h2>
+          <h2 className="panel-title">All Users</h2>
         </div>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontSize: 13, fontFamily: 'var(--font-display)', fontWeight: 800, fontStyle: 'italic', letterSpacing: '0.1em' }}>
-            LOADING...
+          <div className="text-center py-10 text-[var(--text-muted)] text-[13px] font-bold tracking-wider">
+            Loading...
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px] border-collapse">
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--cs-border)' }}>
-                  {['ID', 'USERNAME', 'ROLE', 'SKILL', 'JOINED', 'ADMIN'].map((h) => (
-                    <th key={h} style={{ paddingBottom: 12, fontWeight: 700, fontSize: 10, letterSpacing: '0.15em', color: 'var(--text-muted)', textAlign: 'left', textTransform: 'uppercase' }}>{h}</th>
+                <tr className="border-b border-[var(--cs-border)]">
+                  {['ID', 'Username', 'Role', 'Skill', 'Joined', 'Admin'].map((h) => (
+                    <th key={h} className="pb-3 font-bold text-[10px] tracking-widest text-[var(--text-muted)] text-left uppercase">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {users.map((u) => (
-                  <tr key={u.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                    <td style={{ padding: '12px 0', color: 'var(--text-muted)' }}>{u.id}</td>
-                    <td style={{ padding: '12px 0', fontWeight: 600, color: 'var(--text-main)', fontFamily: 'var(--font-display)', fontStyle: 'italic' }}>{u.username.toUpperCase()}</td>
-                    <td style={{ padding: '12px 0' }}>
+                  <tr key={u.id} className="border-b border-[var(--cs-border)]">
+                    <td className="py-3 text-[var(--text-muted)]">{u.id}</td>
+                    <td className="py-3 font-semibold text-[var(--text-main)]">{u.username}</td>
+                    <td className="py-3">
                       <span className="label-bracket">{u.primary_role}</span>
                     </td>
-                    <td style={{ padding: '12px 0', color: 'var(--text-muted)' }}>{u.skill_level}</td>
-                    <td style={{ padding: '12px 0', color: 'var(--text-muted)' }}>
+                    <td className="py-3 text-[var(--text-muted)]">{u.skill_level}</td>
+                    <td className="py-3 text-[var(--text-muted)]">
                       {u.created_at ? new Date(u.created_at).toLocaleDateString() : "\u2014"}
                     </td>
-                    <td style={{ padding: '12px 0' }}>
+                    <td className="py-3">
                       {u.is_admin === 1 ? (
-                        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontStyle: 'italic', fontSize: 12, color: 'var(--cs-accent)' }}>ADMIN</span>
+                        <span className="text-xs font-bold text-[var(--cs-accent)]">Admin</span>
                       ) : "\u2014"}
                     </td>
                   </tr>

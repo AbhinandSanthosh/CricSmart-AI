@@ -472,13 +472,13 @@ export default function BallTrackingPage() {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 24 }}>
-      <div style={{ gridColumn: 'span 12', padding: '20px 0' }}>
-        <div className="label-bracket" style={{ marginBottom: 12 }}>ball_tracking_module</div>
-        <h1 className="hero-title" style={{ fontSize: 48 }}>
-          BALL TRACKING
+    <div className="grid grid-cols-12 gap-6">
+      <div className="col-span-12 py-5">
+        <p className="label-bracket mb-3">Ball Tracking</p>
+        <h1 className="text-4xl font-bold text-[var(--text-main)] tracking-tight">
+          Ball Tracking
         </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: 16, marginTop: 8 }}>
+        <p className="text-[var(--text-muted)] text-base mt-2">
           Upload or record cricket video — track ball trajectory, speed, bounce point &amp; shot analysis
         </p>
       </div>
@@ -486,57 +486,57 @@ export default function BallTrackingPage() {
       {/* Upload / Live Capture Options */}
       {!videoUrl && !liveStream ? (
         <>
-          <div className="panel" style={{ gridColumn: 'span 12', padding: 48, cursor: 'pointer', textAlign: 'center', borderStyle: 'dashed' }} onClick={() => fileInputRef.current?.click()}>
-            <Upload style={{ width: 56, height: 56, color: 'var(--cs-accent)', margin: '0 auto 16px' }} />
-            <h3 style={{ fontSize: 22, marginBottom: 8 }}>UPLOAD VIDEO</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>MP4, MOV, or AVI — max 50MB</p>
+          <div className="panel col-span-12 p-12 cursor-pointer text-center border-dashed" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="w-14 h-14 text-[var(--cs-accent)] mx-auto mb-4" />
+            <h3 className="text-[22px] mb-2">Upload Video</h3>
+            <p className="text-[var(--text-muted)] text-sm">MP4, MOV, or AVI — max 50MB</p>
           </div>
-          <div className="panel" style={{ gridColumn: 'span 12', padding: 48, cursor: 'pointer', textAlign: 'center' }} onClick={startLiveCapture}>
-            <Video style={{ width: 56, height: 56, color: '#8b5cf6', margin: '0 auto 16px' }} />
-            <h3 style={{ fontSize: 22, marginBottom: 8 }}>LIVE CAPTURE</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Record a bowling delivery using your camera</p>
+          <div className="panel col-span-12 p-12 cursor-pointer text-center" onClick={startLiveCapture}>
+            <Video className="w-14 h-14 text-[#8b5cf6] mx-auto mb-4" />
+            <h3 className="text-[22px] mb-2">Live Capture</h3>
+            <p className="text-[var(--text-muted)] text-sm">Record a bowling delivery using your camera</p>
           </div>
         </>
       ) : null}
 
       {/* Live Camera View */}
       {liveStream && !videoUrl && (
-        <div className="panel" style={{ gridColumn: 'span 12', padding: 24 }}>
+        <div className="panel col-span-12 p-6">
           <div className="panel-header">
             <span className="label-bracket">
-              {recording && <span style={{ display: 'inline-block', width: 8, height: 8, background: 'var(--cs-danger)', borderRadius: '50%', marginRight: 6, animation: 'pulse 1.5s infinite' }} />}
+              {recording && <span className="inline-block w-2 h-2 bg-[var(--cs-danger)] rounded-full mr-1.5 animate-pulse" />}
               {recording ? 'recording' : 'live_camera'}
             </span>
-            <h2 className="panel-title">{recording ? 'RECORDING...' : 'POSITION CAMERA'}</h2>
+            <h2 className="panel-title">{recording ? 'Recording...' : 'Position Camera'}</h2>
           </div>
-          <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 16 }}>
+          <p className="text-[var(--text-muted)] text-[13px] mb-4">
             {recording
               ? "Recording the delivery. Press Stop when the ball reaches the batter."
               : "Position your camera side-on to the pitch, capturing the full bowling and batting crease. Press Record when the bowler is ready."}
           </p>
-          <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: '#000' }}>
-            <video ref={liveVideoRef} style={{ width: '100%', maxHeight: 400, display: 'block', objectFit: 'contain' }} autoPlay playsInline muted />
+          <div className="relative rounded-xl overflow-hidden bg-black">
+            <video ref={liveVideoRef} className="w-full block object-contain" style={{ maxHeight: 400 }} autoPlay playsInline muted />
             {recording && (
-              <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,42,75,0.8)', padding: '4px 12px', borderRadius: 20 }}>
-                <span style={{ width: 8, height: 8, background: '#fff', borderRadius: '50%', animation: 'pulse 1s infinite' }} />
-                <span style={{ fontSize: 11, color: '#fff', fontWeight: 700, letterSpacing: '0.1em' }}>REC</span>
+              <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-[var(--cs-danger)]/80 px-3 py-1 rounded-full">
+                <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                <span className="text-[11px] text-white font-bold tracking-widest">REC</span>
               </div>
             )}
           </div>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 20, flexWrap: 'wrap' }}>
+          <div className="flex gap-3 justify-center mt-5 flex-wrap">
             {!recording ? (
-              <button onClick={startRecording} className="btn btn-primary" style={{ padding: '8px 8px 8px 24px', fontSize: 14 }}>
+              <button onClick={startRecording} className="btn btn-primary px-6 py-2 text-sm">
                 Record
-                <div className="btn-icon-circle" style={{ width: 28, height: 28, background: 'var(--cs-danger)' }}>
-                  <Camera style={{ width: 14, height: 14 }} />
+                <div className="btn-icon-circle w-7 h-7 bg-[var(--cs-danger)]">
+                  <Camera className="w-3.5 h-3.5" />
                 </div>
               </button>
             ) : (
-              <button onClick={stopRecording} className="btn btn-primary" style={{ padding: '8px 24px', fontSize: 14, background: 'var(--cs-danger)', color: '#fff' }}>
+              <button onClick={stopRecording} className="btn btn-primary px-6 py-2 text-sm bg-[var(--cs-danger)] text-white">
                 Stop Recording
               </button>
             )}
-            <button className="btn btn-secondary" style={{ padding: '8px 24px', fontSize: 14 }} onClick={cancelLive}>Cancel</button>
+            <button className="btn btn-secondary px-6 py-2 text-sm" onClick={cancelLive}>Cancel</button>
           </div>
         </div>
       )}
@@ -544,51 +544,50 @@ export default function BallTrackingPage() {
       {/* Video Preview + Trim + Analyze */}
       {videoUrl && (
         <>
-          <div className="panel" style={{ gridColumn: 'span 12', padding: 24 }}>
+          <div className="panel col-span-12 p-6">
             <div className="panel-header">
               <span className="label-bracket">video_feed</span>
-              <h2 className="panel-title">PREVIEW</h2>
+              <h2 className="panel-title">Preview</h2>
             </div>
 
-            <video ref={videoRef} src={videoUrl} controls onLoadedMetadata={onVideoLoaded} style={{ width: '100%', maxHeight: 400, borderRadius: 12, objectFit: 'contain', background: '#000', display: result?.outputVideoUrl ? 'none' : 'block' }} />
+            <video ref={videoRef} src={videoUrl} controls onLoadedMetadata={onVideoLoaded} className="w-full rounded-xl object-contain bg-black" style={{ maxHeight: 400, display: result?.outputVideoUrl ? 'none' : 'block' }} />
 
             {/* Trim Controls */}
             {duration > 0 && !result && (
-              <div style={{ marginTop: 16 }}>
+              <div className="mt-4">
                 {!trimming ? (
                   <button
                     onClick={() => setTrimming(true)}
-                    className="btn btn-secondary"
-                    style={{ padding: '6px 16px', fontSize: 12 }}
+                    className="btn btn-secondary px-4 py-1.5 text-xs"
                   >
-                    <Scissors style={{ width: 14, height: 14, marginRight: 6, display: 'inline', verticalAlign: 'middle' }} />
+                    <Scissors className="w-3.5 h-3.5 mr-1.5 inline align-middle" />
                     Trim Video
                   </button>
                 ) : (
-                  <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 12, padding: 16, border: '1px solid var(--cs-border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div className="bg-[var(--bg-surface)] rounded-xl p-4 border border-[var(--cs-border)]">
+                    <div className="flex items-center justify-between mb-3">
                       <div className="label-bracket">
-                        <Scissors style={{ width: 12, height: 12, display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
+                        <Scissors className="w-3 h-3 inline align-middle mr-1" />
                         trim_editor
                       </div>
                       <button
                         onClick={() => { setTrimming(false); setTrimStart(0); setTrimEnd(duration); }}
-                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font-ui)' }}
+                        className="bg-transparent border-none text-[var(--text-muted)] text-[11px] cursor-pointer"
                       >
-                        CANCEL
+                        Cancel
                       </button>
                     </div>
 
                     <div
                       ref={trackRef}
-                      style={{ position: 'relative', height: 16, background: 'rgba(255,255,255,0.06)', borderRadius: 8, cursor: 'pointer', userSelect: 'none' }}
+                      className="relative h-4 bg-[var(--bg-surface)] rounded-lg cursor-pointer select-none"
                     >
                       <div style={{
                         position: 'absolute', top: 0, height: '100%', borderRadius: 8,
                         left: `${(trimStart / duration) * 100}%`,
                         width: `${((trimEnd - trimStart) / duration) * 100}%`,
-                        background: 'rgba(0,212,255,0.25)',
-                        border: '1px solid rgba(0,212,255,0.4)',
+                        background: 'var(--cs-accent-light)',
+                        border: '1px solid var(--cs-accent)',
                       }} />
                       <div
                         style={{ ...handleStyle, left: `calc(${(trimStart / duration) * 100}% - 8px)` }}
@@ -602,23 +601,23 @@ export default function BallTrackingPage() {
                       />
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, flexWrap: 'wrap', gap: 8 }}>
-                      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    <div className="flex justify-between items-center mt-2.5 flex-wrap gap-2">
+                      <div className="flex gap-3 flex-wrap">
                         <div>
-                          <span style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.1em', fontWeight: 600 }}>START </span>
-                          <span style={{ fontSize: 13, color: 'var(--cs-accent)', fontFamily: 'var(--font-display)', fontWeight: 800, fontStyle: 'italic' }}>{formatTime(trimStart)}</span>
+                          <span className="text-[10px] text-[var(--text-muted)] tracking-widest font-semibold">START </span>
+                          <span className="text-[13px] text-[var(--cs-accent)] font-extrabold">{formatTime(trimStart)}</span>
                         </div>
                         <div>
-                          <span style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.1em', fontWeight: 600 }}>END </span>
-                          <span style={{ fontSize: 13, color: 'var(--cs-accent)', fontFamily: 'var(--font-display)', fontWeight: 800, fontStyle: 'italic' }}>{formatTime(trimEnd)}</span>
+                          <span className="text-[10px] text-[var(--text-muted)] tracking-widest font-semibold">END </span>
+                          <span className="text-[13px] text-[var(--cs-accent)] font-extrabold">{formatTime(trimEnd)}</span>
                         </div>
                         <div>
-                          <span style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.1em', fontWeight: 600 }}>DURATION </span>
-                          <span style={{ fontSize: 13, color: 'var(--text-main)', fontFamily: 'var(--font-display)', fontWeight: 800, fontStyle: 'italic' }}>{formatTime(trimEnd - trimStart)}</span>
+                          <span className="text-[10px] text-[var(--text-muted)] tracking-widest font-semibold">DURATION </span>
+                          <span className="text-[13px] text-[var(--text-main)] font-extrabold">{formatTime(trimEnd - trimStart)}</span>
                         </div>
                       </div>
-                      <button onClick={previewTrim} className="btn btn-secondary" style={{ padding: '4px 12px', fontSize: 11 }}>
-                        <Play style={{ width: 10, height: 10, marginRight: 4, display: 'inline', verticalAlign: 'middle' }} />
+                      <button onClick={previewTrim} className="btn btn-secondary px-3 py-1 text-[11px]">
+                        <Play className="w-2.5 h-2.5 mr-1 inline align-middle" />
                         Preview
                       </button>
                     </div>
@@ -627,31 +626,31 @@ export default function BallTrackingPage() {
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
+            <div className="flex gap-3 mt-5 flex-wrap">
               {!result && !analyzing && (
-                <button onClick={analyzeVideo} className="btn btn-primary" style={{ padding: '8px 8px 8px 24px', fontSize: 14, flex: 1, minWidth: 200 }}>
+                <button onClick={analyzeVideo} className="btn btn-primary py-2 pl-6 pr-2 text-sm flex-1 min-w-[200px]">
                   {trimming ? "Analyze Trimmed Clip" : "Analyze Ball"}
-                  <div className="btn-icon-circle" style={{ width: 28, height: 28 }}>
-                    <Play style={{ width: 12, height: 12 }} />
+                  <div className="btn-icon-circle w-7 h-7">
+                    <Play className="w-3 h-3" />
                   </div>
                 </button>
               )}
-              <button className="btn btn-secondary" style={{ padding: '8px 24px', fontSize: 14 }} onClick={reset}>
-                <RotateCcw style={{ width: 14, height: 14, marginRight: 8, display: 'inline' }} />New Video
+              <button className="btn btn-secondary px-6 py-2 text-sm" onClick={reset}>
+                <RotateCcw className="w-3.5 h-3.5 mr-2 inline" />New Video
               </button>
             </div>
             {analyzing && (
-              <div style={{ marginTop: 16 }}>
-                <div style={{ width: '100%', height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
-                  <div style={{ width: `${progress}%`, height: '100%', background: 'var(--cs-accent)', borderRadius: 4, transition: 'width 0.3s' }} />
+              <div className="mt-4">
+                <div className="w-full h-1 bg-[var(--bg-surface)] rounded overflow-hidden">
+                  <div className="h-full bg-[var(--cs-accent)] rounded transition-[width] duration-300" style={{ width: `${progress}%` }} />
                 </div>
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', marginTop: 8 }}>
+                <p className="text-[11px] text-[var(--text-muted)] text-center mt-2">
                   Processing frames{trimming ? ` (${formatTime(trimStart)} - ${formatTime(trimEnd)})` : ""}... {progress}%
                 </p>
               </div>
             )}
             {error && (
-              <div style={{ marginTop: 16, fontSize: 12, color: 'var(--cs-accent)', background: 'rgba(0,212,255,0.08)', padding: 12, borderRadius: 12 }}>{error}</div>
+              <div className="mt-4 text-xs text-[var(--cs-accent)] bg-[var(--cs-accent-light)] p-3 rounded-xl">{error}</div>
             )}
           </div>
 
@@ -660,13 +659,13 @@ export default function BallTrackingPage() {
             <>
               {/* DRS-Style Ball Tracking Video */}
               {result.outputVideoUrl && (
-                <div className="panel" style={{ gridColumn: 'span 12', padding: 0, overflow: 'hidden' }}>
-                  <div style={{ padding: '20px 24px 12px' }}>
+                <div className="panel col-span-12 p-0 overflow-hidden">
+                  <div className="px-6 pt-5 pb-3">
                     <div className="panel-header">
-                      <span className="label-bracket" style={{ color: '#22c55e' }}>drs_ball_tracking</span>
-                      <h2 className="panel-title">BALL TRAJECTORY</h2>
+                      <span className="label-bracket text-[#22c55e]">drs_ball_tracking</span>
+                      <h2 className="panel-title">Ball Trajectory</h2>
                     </div>
-                    <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+                    <p className="text-xs text-[var(--text-muted)] mb-3">
                       DRS-style replay showing ball path, bounce point, predicted trajectory & stump verdict
                     </p>
                   </div>
@@ -674,47 +673,49 @@ export default function BallTrackingPage() {
                     src={result.outputVideoUrl}
                     controls
                     autoPlay
-                    style={{ width: '100%', maxHeight: 500, objectFit: 'contain', background: '#000', display: 'block' }}
+                    className="w-full block object-contain bg-black"
+                    style={{ maxHeight: 500 }}
                   />
                 </div>
               )}
 
               {/* Ball Trajectory Visualization — canvas overlay on first frame */}
               {result.trajectory && result.trajectory.length >= 2 && (
-                <div className="panel" style={{ gridColumn: 'span 12', padding: 24 }}>
+                <div className="panel col-span-12 p-6">
                   <div className="panel-header">
-                    <span className="label-bracket" style={{ color: '#00d4ff' }}>ball_trajectory</span>
-                    <h2 className="panel-title">TRAJECTORY MAP</h2>
+                    <span className="label-bracket text-[#00d4ff]">ball_trajectory</span>
+                    <h2 className="panel-title">Trajectory Map</h2>
                   </div>
-                  <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
+                  <p className="text-xs text-[var(--text-muted)] mb-4">
                     Traced ball path from release to impact — {result.trajectory.length} tracking points
                   </p>
-                  <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: '#000' }}>
+                  <div className="relative rounded-xl overflow-hidden bg-black">
                     <canvas
                       ref={trajectoryCanvasRef}
-                      style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 600, objectFit: 'contain' }}
+                      className="w-full h-auto block object-contain"
+                      style={{ maxHeight: 600 }}
                     />
                   </div>
                   {/* Legend */}
-                  <div style={{ display: 'flex', gap: 16, marginTop: 14, flexWrap: 'wrap', fontSize: 11, color: 'var(--text-muted)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 20, height: 3, background: '#00d4ff', borderRadius: 2 }} />
+                  <div className="flex gap-4 mt-3.5 flex-wrap text-[11px] text-[var(--text-muted)]">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-5 h-[3px] bg-[#00d4ff] rounded-sm" />
                       Pre-bounce path
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 20, height: 3, background: result.hitStumps ? '#ff2a4b' : '#facc15', borderRadius: 2 }} />
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-5 h-[3px] rounded-sm" style={{ background: result.hitStumps ? '#ff2a4b' : '#facc15' }} />
                       Post-bounce path
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#00d4ff' }} />
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#00d4ff]" />
                       Release
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ffa500' }} />
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#ffa500]" />
                       Pitch (bounce)
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: result.hitStumps ? '#ff2a4b' : '#22c55e' }} />
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ background: result.hitStumps ? '#ff2a4b' : '#22c55e' }} />
                       Impact
                     </div>
                   </div>
@@ -722,110 +723,110 @@ export default function BallTrackingPage() {
               )}
 
               {/* Speed + Shot Type Summary */}
-              <div className="panel" style={{ gridColumn: 'span 12' }}>
+              <div className="panel col-span-12">
                 <div className="panel-header">
-                  <span className="label-bracket"><Zap style={{ width: 12, height: 12, display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />analysis_result</span>
-                  <h2 className="panel-title">BALL ANALYSIS</h2>
+                  <span className="label-bracket"><Zap className="w-3 h-3 inline align-middle mr-1" />analysis_result</span>
+                  <h2 className="panel-title">Ball Analysis</h2>
                 </div>
 
                 {/* Top stats row */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16, marginBottom: 24 }}>
-                  <div style={{ textAlign: 'center', padding: 20, background: 'rgba(0,212,255,0.05)', borderRadius: 14, border: '1px solid rgba(0,212,255,0.15)' }}>
-                    <div className="stat-val" style={{ fontSize: 48, color: 'var(--cs-accent)' }}>{result.speed.toFixed(1)}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.08em', marginTop: 4 }}>KM/H</div>
-                    <div style={{ fontSize: 12, color: 'var(--cs-accent)', marginTop: 4, fontWeight: 600 }}>
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-4 mb-6">
+                  <div className="text-center p-5 bg-[var(--cs-accent-light)] rounded-[14px] border border-[var(--cs-accent)]/15">
+                    <div className="stat-val text-5xl text-[var(--cs-accent)]">{result.speed.toFixed(1)}</div>
+                    <div className="text-[11px] text-[var(--text-muted)] font-semibold tracking-wider mt-1">KM/H</div>
+                    <div className="text-xs text-[var(--cs-accent)] mt-1 font-semibold">
                       {result.speed > 140 ? "Express Pace" : result.speed > 130 ? "Good Pace" : result.speed > 120 ? "Medium-Fast" : "Medium Pace"}
                     </div>
                   </div>
-                  <div style={{ textAlign: 'center', padding: 20, background: 'rgba(139,92,246,0.05)', borderRadius: 14, border: '1px solid rgba(139,92,246,0.15)' }}>
-                    <div style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontStyle: 'italic', fontSize: 24, color: '#8b5cf6', marginTop: 8 }}>{result.shotType.toUpperCase()}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.08em', marginTop: 8 }}>DELIVERY TYPE</div>
+                  <div className="text-center p-5 bg-[rgba(139,92,246,0.05)] rounded-[14px] border border-[rgba(139,92,246,0.15)]">
+                    <div className="font-black text-2xl text-[#8b5cf6] mt-2">{result.shotType}</div>
+                    <div className="text-[11px] text-[var(--text-muted)] font-semibold tracking-wider mt-2">Delivery Type</div>
                   </div>
-                  <div style={{ textAlign: 'center', padding: 20, background: result.hitStumps ? 'rgba(255,42,75,0.05)' : 'rgba(34,197,94,0.05)', borderRadius: 14, border: `1px solid ${result.hitStumps ? 'rgba(255,42,75,0.15)' : 'rgba(34,197,94,0.15)'}` }}>
-                    <div style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontStyle: 'italic', fontSize: 28, color: result.hitStumps ? 'var(--cs-danger)' : '#22c55e', marginTop: 4 }}>
+                  <div className="text-center p-5 rounded-[14px] border" style={{ background: result.hitStumps ? 'rgba(255,42,75,0.05)' : 'rgba(34,197,94,0.05)', borderColor: result.hitStumps ? 'rgba(255,42,75,0.15)' : 'rgba(34,197,94,0.15)' }}>
+                    <div className="font-black text-[28px] mt-1" style={{ color: result.hitStumps ? 'var(--cs-danger)' : '#22c55e' }}>
                       {result.hitStumps ? "YES" : "NO"}
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.08em', marginTop: 8 }}>HITTING STUMPS</div>
+                    <div className="text-[11px] text-[var(--text-muted)] font-semibold tracking-wider mt-2">Hitting Stumps</div>
                   </div>
                 </div>
 
                 {/* Shot advice */}
-                <div style={{ padding: 20, background: 'rgba(255,255,255,0.02)', borderRadius: 14, border: '1px solid var(--cs-border)', marginBottom: 16 }}>
-                  <div className="label-bracket" style={{ marginBottom: 10 }}>
-                    <Target style={{ width: 12, height: 12, display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
+                <div className="p-5 bg-[var(--bg-surface)] rounded-[14px] border border-[var(--cs-border)] mb-4">
+                  <div className="label-bracket mb-2.5">
+                    <Target className="w-3 h-3 inline align-middle mr-1" />
                     shot_analysis
                   </div>
-                  <p style={{ fontSize: 14, color: 'var(--text-main)', lineHeight: 1.7 }}>
+                  <p className="text-sm text-[var(--text-main)] leading-7">
                     {getShotAdvice(result.shotType, result.speed, result.hitStumps)}
                   </p>
                 </div>
 
                 {/* Key Points: Release, Pitch, Impact */}
-                <div style={{ padding: 20, background: 'rgba(255,255,255,0.02)', borderRadius: 14, border: '1px solid var(--cs-border)', marginBottom: 16 }}>
-                  <div className="label-bracket" style={{ marginBottom: 14 }}>key_points</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-                    <div style={{ textAlign: 'center', padding: 12, background: 'rgba(0,255,255,0.05)', borderRadius: 10, border: '1px solid rgba(0,255,255,0.15)' }}>
-                      <div style={{ width: 10, height: 10, borderRadius: '50%', border: '2px solid #00ffff', margin: '0 auto 8px' }} />
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#00ffff', letterSpacing: '0.08em' }}>RELEASE</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Bowler&apos;s hand</div>
+                <div className="p-5 bg-[var(--bg-surface)] rounded-[14px] border border-[var(--cs-border)] mb-4">
+                  <div className="label-bracket mb-3.5">key_points</div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="text-center p-3 bg-[rgba(0,255,255,0.05)] rounded-[10px] border border-[rgba(0,255,255,0.15)]">
+                      <div className="w-2.5 h-2.5 rounded-full border-2 border-[#00ffff] mx-auto mb-2" />
+                      <div className="text-xs font-bold text-[#00ffff] tracking-wider">Release</div>
+                      <div className="text-[11px] text-[var(--text-muted)] mt-1">Bowler&apos;s hand</div>
                     </div>
-                    <div style={{ textAlign: 'center', padding: 12, background: 'rgba(255,165,0,0.05)', borderRadius: 10, border: '1px solid rgba(255,165,0,0.15)' }}>
-                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ffa500', margin: '0 auto 8px' }} />
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#ffa500', letterSpacing: '0.08em' }}>PITCH</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{result.bouncePoint}</div>
+                    <div className="text-center p-3 bg-[rgba(255,165,0,0.05)] rounded-[10px] border border-[rgba(255,165,0,0.15)]">
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#ffa500] mx-auto mb-2" />
+                      <div className="text-xs font-bold text-[#ffa500] tracking-wider">Pitch</div>
+                      <div className="text-[11px] text-[var(--text-muted)] mt-1">{result.bouncePoint}</div>
                     </div>
-                    <div style={{ textAlign: 'center', padding: 12, background: result.hitStumps ? 'rgba(255,42,75,0.05)' : 'rgba(34,197,94,0.05)', borderRadius: 10, border: `1px solid ${result.hitStumps ? 'rgba(255,42,75,0.15)' : 'rgba(34,197,94,0.15)'}` }}>
-                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: result.hitStumps ? '#ff2a4b' : '#22c55e', margin: '0 auto 8px' }} />
-                      <div style={{ fontSize: 12, fontWeight: 700, color: result.hitStumps ? '#ff2a4b' : '#22c55e', letterSpacing: '0.08em' }}>IMPACT</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Batter&apos;s end</div>
+                    <div className="text-center p-3 rounded-[10px] border" style={{ background: result.hitStumps ? 'rgba(255,42,75,0.05)' : 'rgba(34,197,94,0.05)', borderColor: result.hitStumps ? 'rgba(255,42,75,0.15)' : 'rgba(34,197,94,0.15)' }}>
+                      <div className="w-2.5 h-2.5 rounded-full mx-auto mb-2" style={{ background: result.hitStumps ? '#ff2a4b' : '#22c55e' }} />
+                      <div className="text-xs font-bold tracking-wider" style={{ color: result.hitStumps ? '#ff2a4b' : '#22c55e' }}>Impact</div>
+                      <div className="text-[11px] text-[var(--text-muted)] mt-1">Batter&apos;s end</div>
                     </div>
                   </div>
                 </div>
 
                 {/* Detection details */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
                   {result.stumpsDetected !== undefined && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: 14, borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--cs-border)' }}>
-                      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Stumps Detected</span>
-                      <span style={{ fontSize: 13, color: result.stumpsDetected ? '#22c55e' : '#f59e0b', fontWeight: 600 }}>{result.stumpsDetected ? 'Yes' : 'No'}</span>
+                    <div className="flex justify-between p-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--cs-border)]">
+                      <span className="text-[13px] text-[var(--text-muted)]">Stumps Detected</span>
+                      <span className="text-[13px] font-semibold" style={{ color: result.stumpsDetected ? '#22c55e' : '#f59e0b' }}>{result.stumpsDetected ? 'Yes' : 'No'}</span>
                     </div>
                   )}
                   {result.deliveryPoints ? (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: 14, borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--cs-border)' }}>
-                      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Tracking Points</span>
-                      <span style={{ fontSize: 13, color: 'var(--text-main)', fontWeight: 600 }}>{result.deliveryPoints} frames</span>
+                    <div className="flex justify-between p-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--cs-border)]">
+                      <span className="text-[13px] text-[var(--text-muted)]">Tracking Points</span>
+                      <span className="text-[13px] text-[var(--text-main)] font-semibold">{result.deliveryPoints} frames</span>
                     </div>
                   ) : null}
                   {trimming && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: 14, borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--cs-border)' }}>
-                      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Analyzed Clip</span>
-                      <span style={{ fontSize: 13, color: 'var(--text-main)' }}>{formatTime(trimStart)} - {formatTime(trimEnd)}</span>
+                    <div className="flex justify-between p-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--cs-border)]">
+                      <span className="text-[13px] text-[var(--text-muted)]">Analyzed Clip</span>
+                      <span className="text-[13px] text-[var(--text-main)]">{formatTime(trimStart)} - {formatTime(trimEnd)}</span>
                     </div>
                   )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: 14, borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--cs-border)' }}>
-                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Confidence</span>
-                    <span style={{ fontSize: 13, color: result.confidence > 70 ? '#22c55e' : '#f59e0b', fontWeight: 600 }}>{result.confidence}%</span>
+                  <div className="flex justify-between p-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--cs-border)]">
+                    <span className="text-[13px] text-[var(--text-muted)]">Confidence</span>
+                    <span className="text-[13px] font-semibold" style={{ color: result.confidence > 70 ? '#22c55e' : '#f59e0b' }}>{result.confidence}%</span>
                   </div>
                 </div>
               </div>
 
               {/* Length Guide */}
-              <div className="panel" style={{ gridColumn: 'span 12' }}>
+              <div className="panel col-span-12">
                 <div className="panel-header">
-                  <span className="label-bracket"><ArrowDown style={{ width: 12, height: 12, display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />length_guide</span>
-                  <h2 className="panel-title">PITCH MAP</h2>
+                  <span className="label-bracket"><ArrowDown className="w-3 h-3 inline align-middle mr-1" />length_guide</span>
+                  <h2 className="panel-title">Pitch Map</h2>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
                   {[
                     { type: "Yorker", range: "At the crease", advice: "Block or flick" },
                     { type: "Full Length", range: "2-4m from crease", advice: "Drive through the line" },
                     { type: "Good Length", range: "4-7m from crease", advice: "Defend or leave" },
                     { type: "Short Ball", range: "7m+ from crease", advice: "Pull, cut, or duck" },
                   ].map((l) => (
-                    <div key={l.type} style={{ padding: '12px 16px', borderRadius: 12, background: result.shotType === l.type ? 'rgba(0,212,255,0.08)' : 'rgba(255,255,255,0.02)', border: result.shotType === l.type ? '1px solid rgba(0,212,255,0.25)' : '1px solid var(--cs-border)' }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: result.shotType === l.type ? 'var(--cs-accent)' : 'var(--text-main)', marginBottom: 4 }}>{l.type}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l.range}</div>
-                      <div style={{ fontSize: 11, color: result.shotType === l.type ? 'var(--cs-accent)' : 'var(--text-muted)', marginTop: 4, fontWeight: 600 }}>{l.advice}</div>
+                    <div key={l.type} className="px-4 py-3 rounded-xl border" style={{ background: result.shotType === l.type ? 'var(--cs-accent-light)' : 'var(--bg-surface)', borderColor: result.shotType === l.type ? 'var(--cs-accent)' : 'var(--cs-border)' }}>
+                      <div className="text-sm font-bold mb-1" style={{ color: result.shotType === l.type ? 'var(--cs-accent)' : 'var(--text-main)' }}>{l.type}</div>
+                      <div className="text-[11px] text-[var(--text-muted)]">{l.range}</div>
+                      <div className="text-[11px] mt-1 font-semibold" style={{ color: result.shotType === l.type ? 'var(--cs-accent)' : 'var(--text-muted)' }}>{l.advice}</div>
                     </div>
                   ))}
                 </div>
@@ -835,7 +836,7 @@ export default function BallTrackingPage() {
         </>
       )}
 
-      <input ref={fileInputRef} type="file" accept="video/mp4,video/mov,video/avi,video/*" style={{ display: 'none' }} onChange={handleUpload} />
+      <input ref={fileInputRef} type="file" accept="video/mp4,video/mov,video/avi,video/*" className="hidden" onChange={handleUpload} />
     </div>
   );
 }

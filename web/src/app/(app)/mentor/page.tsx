@@ -71,57 +71,57 @@ export default function MentorPage() {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 24 }}>
+    <div className="grid grid-cols-12 gap-6">
       {/* Hero */}
-      <div style={{ gridColumn: 'span 12', padding: '20px 0' }}>
-        <div className="label-bracket" style={{ marginBottom: 12 }}>
-          ai_mentor_v2
+      <div className="col-span-12 py-5">
+        <p className="label-bracket mb-3">
+          AI Mentor
           {source && (
-            <span style={{ marginLeft: 12, opacity: 0.6 }}>
+            <span className="ml-3 opacity-60">
               {source === "ollama" ? "• ollama_ai" : "• smart_fallback"}
             </span>
           )}
-        </div>
-        <h1 className="hero-title" style={{ fontSize: 48 }}>
-          COACH CHAT
+        </p>
+        <h1 className="text-4xl font-bold text-[var(--text-main)] tracking-tight">
+          Coach Chat
         </h1>
       </div>
 
       {/* Chat Panel */}
-      <div className="panel" style={{ gridColumn: 'span 12', height: 'calc(100vh - 280px)', minHeight: 400, display: 'flex', flexDirection: 'column' }}>
+      <div className="panel col-span-12 flex flex-col" style={{ height: 'calc(100vh - 280px)', minHeight: 400 }}>
         <div className="panel-header">
           <span className="label-bracket">conversation</span>
-          <h2 className="panel-title">AI COACH</h2>
+          <h2 className="panel-title">AI Coach</h2>
         </div>
 
         {/* Messages */}
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, paddingRight: 12, marginBottom: 16 }}>
+        <div className="flex-1 overflow-y-auto flex flex-col gap-4 pr-3 mb-4">
           {messages.map((msg, i) => (
-            <div key={i} style={{ display: 'flex', gap: 12, justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+            <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {msg.role === "assistant" && (
-                <div style={{ width: 32, height: 32, borderRadius: 12, background: 'rgba(0,212,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Bot style={{ width: 16, height: 16, color: 'var(--cs-accent)' }} />
+                <div className="w-8 h-8 rounded-xl bg-[var(--cs-accent-light)] flex items-center justify-center shrink-0">
+                  <Bot className="w-4 h-4 text-[var(--cs-accent)]" />
                 </div>
               )}
               <div className={msg.role === "user" ? "msg msg-user" : "msg msg-ai"} style={{ whiteSpace: 'pre-wrap' }}>
                 {msg.content}
               </div>
               {msg.role === "user" && (
-                <div className="avatar" style={{ width: 32, height: 32, fontSize: 12, flexShrink: 0 }}>
-                  <User style={{ width: 14, height: 14, color: '#000' }} />
+                <div className="avatar w-8 h-8 text-xs shrink-0">
+                  <User className="w-3.5 h-3.5 text-black" />
                 </div>
               )}
             </div>
           ))}
           {loading && (
-            <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 12, background: 'rgba(0,212,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Bot style={{ width: 16, height: 16, color: 'var(--cs-accent)' }} />
+            <div className="flex gap-3">
+              <div className="w-8 h-8 rounded-xl bg-[var(--cs-accent-light)] flex items-center justify-center">
+                <Bot className="w-4 h-4 text-[var(--cs-accent)]" />
               </div>
-              <div className="msg msg-ai" style={{ display: 'flex', gap: 4, padding: '12px 16px' }}>
-                <span style={{ width: 6, height: 6, background: 'var(--cs-accent)', borderRadius: '50%', opacity: 0.4, animation: 'pulse 1.5s infinite' }} />
-                <span style={{ width: 6, height: 6, background: 'var(--cs-accent)', borderRadius: '50%', opacity: 0.4, animation: 'pulse 1.5s infinite 0.15s' }} />
-                <span style={{ width: 6, height: 6, background: 'var(--cs-accent)', borderRadius: '50%', opacity: 0.4, animation: 'pulse 1.5s infinite 0.3s' }} />
+              <div className="msg msg-ai flex gap-1 px-4 py-3">
+                <span className="w-1.5 h-1.5 bg-[var(--cs-accent)] rounded-full opacity-40 animate-pulse" />
+                <span className="w-1.5 h-1.5 bg-[var(--cs-accent)] rounded-full opacity-40 animate-pulse [animation-delay:150ms]" />
+                <span className="w-1.5 h-1.5 bg-[var(--cs-accent)] rounded-full opacity-40 animate-pulse [animation-delay:300ms]" />
               </div>
             </div>
           )}
@@ -130,16 +130,14 @@ export default function MentorPage() {
 
         {/* Quick Prompts */}
         {messages.length <= 1 && (
-          <div style={{ marginBottom: 16 }}>
-            <div className="label-bracket" style={{ marginBottom: 8 }}>quick_questions</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <div className="mb-4">
+            <div className="label-bracket mb-2">quick_questions</div>
+            <div className="flex flex-wrap gap-2">
               {QUICK_PROMPTS.map((q) => (
                 <button
                   key={q}
                   onClick={() => sendMessage(q)}
-                  style={{ fontSize: 12, padding: '8px 16px', borderRadius: 'var(--radius-pill)', border: '1px solid var(--cs-border-strong)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'var(--font-ui)' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--cs-accent)'; e.currentTarget.style.color = 'var(--cs-accent)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--cs-border-strong)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                  className="text-sm px-4 py-2 rounded-full border border-[var(--cs-border)] bg-transparent text-[var(--text-muted)] cursor-pointer transition-all hover:border-[var(--cs-accent)] hover:text-[var(--cs-accent)]"
                 >
                   {q}
                 </button>
@@ -149,7 +147,7 @@ export default function MentorPage() {
         )}
 
         {/* Input */}
-        <div style={{ display: 'flex', gap: 12 }}>
+        <div className="flex gap-3">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -158,7 +156,7 @@ export default function MentorPage() {
             className="chat-input-field"
           />
           <button onClick={() => sendMessage()} disabled={!input.trim() || loading} className="btn-send" style={{ opacity: (!input.trim() || loading) ? 0.3 : 1 }}>
-            SEND
+            Send
           </button>
         </div>
       </div>

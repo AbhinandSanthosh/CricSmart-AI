@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Montserrat } from "next/font/google";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 const inter = Inter({
@@ -17,8 +18,6 @@ const montserrat = Montserrat({
 export const metadata: Metadata = {
   title: "CricEye AI",
   description: "AI-powered cricket training platform",
-  // Next.js 15 picks up app/favicon.ico, app/icon.png and app/apple-icon.png
-  // automatically. We add explicit metadata for OG/social previews.
   openGraph: {
     title: "CricEye AI",
     description: "Detect. Analyse. Improve. — AI-powered cricket training platform",
@@ -40,9 +39,19 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${inter.variable} ${montserrat.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
+      </body>
     </html>
   );
 }
