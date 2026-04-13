@@ -2,193 +2,105 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useAuth } from "@/store/auth";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { ArrowRight, Check } from "lucide-react";
 
 export default function ForgotPasswordPage() {
+  const { resetPassword } = useAuth();
   const [email, setEmail] = useState("");
-  const [token, setToken] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [step, setStep] = useState<"email" | "reset">("email");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleRequestReset(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setToken(data.token);
-      setStep("reset");
+      await resetPassword(email);
+      setSuccess("Check your email for reset instructions");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to send reset request");
+      const msg = e instanceof Error ? e.message : "Failed to send reset email";
+      if (msg.includes("auth/user-not-found")) {
+        setError("No account found with this email");
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
   }
-
-  async function handleResetPassword(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    if (newPassword !== confirm) {
-      setError("Passwords don't match");
-      return;
-    }
-    if (newPassword.length < 4) {
-      setError("Password must be at least 4 characters");
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, newPassword }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setSuccess("Password reset successfully! You can now sign in.");
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to reset password");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const inputStyle: React.CSSProperties = {
-    width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--cs-border-strong)',
-    borderRadius: 12, padding: '12px 16px', color: 'var(--text-main)', fontFamily: 'var(--font-ui)',
-    fontSize: 13, transition: 'all 0.3s',
-  };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 16 }}>
-      <div style={{ width: '100%', maxWidth: 420 }}>
+    <div className="min-h-screen flex items-center justify-center bg-[var(--bg-base)] p-4">
+      {/* Theme toggle */}
+      <div className="fixed top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
+
+      <div className="w-full max-w-[420px]">
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <div style={{ width: 64, height: 64, margin: '0 auto 16px', borderRadius: '50%', background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 50%, #4ade80 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>
-            🏏
-          </div>
-          <h1 style={{ fontSize: 36, background: 'linear-gradient(180deg, #ffffff 0%, #909ab0 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.03em', fontFamily: 'var(--font-display)', fontWeight: 900, fontStyle: 'italic' }}>
-            CRIC<span style={{ color: 'var(--cs-accent)', WebkitTextFillColor: 'var(--cs-accent)' }}>EYE</span>
-          </h1>
-          <div className="label-bracket" style={{ marginTop: 8 }}>password_recovery</div>
+        <div className="text-center mb-8">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/criceye-mark.png"
+            alt="CricEye"
+            className="w-12 h-12 mx-auto mb-3 block"
+          />
+          <h1 className="text-xl font-bold text-[var(--text-main)] mb-1">CricEye AI</h1>
+          <p className="text-sm text-[var(--text-muted)]">Password recovery</p>
         </div>
 
-        <div className="panel" style={{ padding: 32 }}>
+        <div className="panel p-8">
           {success ? (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(34, 197, 94, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5"><path d="M5 13l4 4L19 7" /></svg>
+            <div className="text-center">
+              <div className="w-14 h-14 rounded-full bg-green-100 dark:bg-green-500/15 flex items-center justify-center mx-auto mb-5">
+                <Check className="w-7 h-7 text-[var(--cs-accent)]" />
               </div>
-              <h2 className="panel-title" style={{ marginBottom: 12 }}>PASSWORD RESET</h2>
-              <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 24 }}>{success}</p>
-              <Link href="/login" className="btn btn-primary" style={{ padding: '8px 8px 8px 24px', fontSize: 14, textDecoration: 'none', width: '100%', justifyContent: 'center' }}>
+              <h2 className="text-xl font-bold text-[var(--text-main)] mb-2">Email Sent</h2>
+              <p className="text-sm text-[var(--text-muted)] mb-6">{success}</p>
+              <Link href="/login" className="btn btn-primary w-full py-3 no-underline">
                 Back to Sign In
-                <div className="btn-icon-circle" style={{ width: 28, height: 28 }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-                </div>
+                <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
-          ) : step === "email" ? (
+          ) : (
             <>
-              <div className="panel-header">
-                <span className="label-bracket">step_1</span>
-                <h2 className="panel-title">FIND ACCOUNT</h2>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-[var(--text-main)] mb-1">Find Account</h2>
+                <p className="text-sm text-[var(--text-muted)]">Enter the email address associated with your account.</p>
               </div>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
-                Enter the email address associated with your account.
-              </p>
-              <form onSubmit={handleRequestReset} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 {error && (
-                  <div style={{ fontSize: 13, color: 'var(--cs-danger)', background: 'rgba(255,42,75,0.08)', padding: 12, borderRadius: 12 }}>
+                  <div className="text-sm text-[var(--cs-danger)] bg-red-50 dark:bg-red-500/10 p-3 rounded-lg">
                     {error}
                   </div>
                 )}
                 <div>
-                  <div className="label-bracket" style={{ marginBottom: 6 }}>email</div>
+                  <label className="block text-sm font-medium text-[var(--text-main)] mb-1.5">Email</label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="your@email.com"
                     required
-                    style={inputStyle}
+                    className="w-full bg-[var(--bg-surface)] border border-[var(--cs-border)] rounded-lg px-4 py-3 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:border-[var(--cs-accent)] focus:ring-2 focus:ring-[var(--cs-accent-light)] transition-all"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="btn btn-primary"
-                  style={{ padding: '8px 8px 8px 24px', fontSize: 14, width: '100%', opacity: loading ? 0.5 : 1 }}
+                  className="btn btn-primary w-full py-3 text-base disabled:opacity-50"
                 >
-                  {loading ? "Verifying..." : "Continue"}
-                  <div className="btn-icon-circle" style={{ width: 28, height: 28 }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-                  </div>
-                </button>
-              </form>
-            </>
-          ) : (
-            <>
-              <div className="panel-header">
-                <span className="label-bracket">step_2</span>
-                <h2 className="panel-title">NEW PASSWORD</h2>
-              </div>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
-                Set a new password for <strong style={{ color: 'var(--cs-accent)' }}>{email}</strong>
-              </p>
-              <form onSubmit={handleResetPassword} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {error && (
-                  <div style={{ fontSize: 13, color: 'var(--cs-danger)', background: 'rgba(255,42,75,0.08)', padding: 12, borderRadius: 12 }}>
-                    {error}
-                  </div>
-                )}
-                <div>
-                  <div className="label-bracket" style={{ marginBottom: 6 }}>new_password</div>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="New password"
-                    required
-                    style={inputStyle}
-                  />
-                </div>
-                <div>
-                  <div className="label-bracket" style={{ marginBottom: 6 }}>confirm_password</div>
-                  <input
-                    type="password"
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
-                    placeholder="Confirm new password"
-                    required
-                    style={inputStyle}
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="btn btn-primary"
-                  style={{ padding: '8px 8px 8px 24px', fontSize: 14, width: '100%', opacity: loading ? 0.5 : 1 }}
-                >
-                  {loading ? "Resetting..." : "Reset Password"}
-                  <div className="btn-icon-circle" style={{ width: 28, height: 28 }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 13l4 4L19 7" /></svg>
-                  </div>
+                  {loading ? "Sending..." : "Send Reset Link"}
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               </form>
             </>
           )}
-          <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-muted)', marginTop: 20 }}>
-            <Link href="/login" style={{ color: 'var(--cs-accent)', textDecoration: 'none' }}>
+          <p className="text-center text-sm text-[var(--text-muted)] mt-5">
+            <Link href="/login" className="text-[var(--cs-accent)] font-medium hover:underline no-underline">
               Back to Sign In
             </Link>
           </p>

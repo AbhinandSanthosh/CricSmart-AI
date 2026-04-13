@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/store/auth";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { ArrowRight } from "lucide-react";
 
 const ROLES = ["Batter", "Bowler", "All-Rounder", "Wicketkeeper"];
 const SKILL_LEVELS = ["Beginner", "Intermediate", "Advanced"];
@@ -11,7 +13,7 @@ const BOWLING_STYLES = ["Fast", "Medium", "Off-Spin", "Leg-Spin"];
 
 export default function SignupPage() {
   const router = useRouter();
-  const { setUser } = useAuth();
+  const { signupWithEmail, loginWithGoogle } = useAuth();
   const [form, setForm] = useState({
     username: "",
     email: "",
@@ -37,138 +39,161 @@ export default function SignupPage() {
     }
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+      await signupWithEmail(form.email, form.password, {
+        username: form.username,
+        role: form.role,
+        skillLevel: form.skillLevel,
+        bowlingStyle: form.bowlingStyle,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setUser(data.user);
       router.push("/dashboard");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Signup failed");
+      const msg = e instanceof Error ? e.message : "Signup failed";
+      if (msg.includes("auth/email-already-in-use")) {
+        setError("An account with this email already exists");
+      } else if (msg.includes("auth/weak-password")) {
+        setError("Password should be at least 6 characters");
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
   }
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--cs-border-strong)',
-    borderRadius: 12, padding: '12px 16px', color: 'var(--text-main)', fontFamily: 'var(--font-ui)',
-    fontSize: 13, transition: 'all 0.3s',
-  };
-
-  const selectBtnBase: React.CSSProperties = {
-    padding: '10px 12px', borderRadius: 12, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-    border: '1px solid var(--cs-border-strong)', background: 'transparent', color: 'var(--text-muted)',
-    transition: 'all 0.2s', fontFamily: 'var(--font-ui)',
-  };
-
-  const selectBtnActive: React.CSSProperties = {
-    ...selectBtnBase,
-    background: 'rgba(0,212,255,0.1)', color: 'var(--cs-accent)', borderColor: 'rgba(0,212,255,0.3)',
-  };
+  async function handleGoogleSignIn() {
+    setError("");
+    setLoading(true);
+    try {
+      await loginWithGoogle();
+      router.push("/dashboard");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Google sign-in failed";
+      if (msg.includes("auth/popup-closed-by-user")) {
+        setError("Sign-in cancelled");
+      } else {
+        setError(msg);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 16 }}>
-      <div style={{ width: '100%', maxWidth: 480 }}>
+    <div className="min-h-screen flex items-center justify-center bg-[var(--bg-base)] p-4">
+      {/* Theme toggle */}
+      <div className="fixed top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
+
+      <div className="w-full max-w-[480px]">
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+        <div className="text-center mb-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/criceye-logo.png"
+            src="/criceye-mark.png"
             alt="CricEye"
-            style={{ width: 220, height: 'auto', margin: '0 auto 8px', display: 'block', filter: 'brightness(1.6) saturate(1.1)' }}
+            className="w-12 h-12 mx-auto mb-3 block"
           />
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.05em', marginTop: 4, marginBottom: 8 }}>
-            Join the AI cricket coach
-          </div>
-          <div className="label-bracket">create_account</div>
+          <h1 className="text-xl font-bold text-[var(--text-main)] mb-1">CricEye AI</h1>
+          <p className="text-sm text-[var(--text-muted)]">Join the AI cricket coach</p>
         </div>
 
         {/* Card */}
-        <div className="panel" style={{ padding: 32 }}>
-          <div className="panel-header">
-            <span className="label-bracket">registration</span>
-            <h2 className="panel-title">SIGN UP</h2>
+        <div className="panel p-8">
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-[var(--text-main)] mb-1">Create Account</h2>
+            <p className="text-sm text-[var(--text-muted)]">Set up your player profile to get started</p>
           </div>
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {error && (
-              <div style={{ fontSize: 13, color: 'var(--cs-danger)', background: 'rgba(255,42,75,0.08)', padding: 12, borderRadius: 12 }}>
+              <div className="text-sm text-[var(--cs-danger)] bg-red-50 dark:bg-red-500/10 p-3 rounded-lg">
                 {error}
               </div>
             )}
+
             <div>
-              <div className="label-bracket" style={{ marginBottom: 6 }}>full_name</div>
+              <label className="block text-sm font-medium text-[var(--text-main)] mb-1.5">Full Name</label>
               <input
                 value={form.username}
                 onChange={(e) => update("username", e.target.value)}
                 placeholder="Your full name"
                 required
-                style={inputStyle}
+                className="w-full bg-[var(--bg-surface)] border border-[var(--cs-border)] rounded-lg px-4 py-3 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:border-[var(--cs-accent)] focus:ring-2 focus:ring-[var(--cs-accent-light)] transition-all"
               />
             </div>
+
             <div>
-              <div className="label-bracket" style={{ marginBottom: 6 }}>email</div>
+              <label className="block text-sm font-medium text-[var(--text-main)] mb-1.5">Email</label>
               <input
                 type="email"
                 value={form.email}
                 onChange={(e) => update("email", e.target.value)}
                 placeholder="your@email.com"
                 required
-                style={inputStyle}
+                className="w-full bg-[var(--bg-surface)] border border-[var(--cs-border)] rounded-lg px-4 py-3 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:border-[var(--cs-accent)] focus:ring-2 focus:ring-[var(--cs-accent-light)] transition-all"
               />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <div className="label-bracket" style={{ marginBottom: 6 }}>password</div>
+                <label className="block text-sm font-medium text-[var(--text-main)] mb-1.5">Password</label>
                 <input
                   type="password"
                   value={form.password}
                   onChange={(e) => update("password", e.target.value)}
                   placeholder="Password"
                   required
-                  style={inputStyle}
+                  className="w-full bg-[var(--bg-surface)] border border-[var(--cs-border)] rounded-lg px-4 py-3 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:border-[var(--cs-accent)] focus:ring-2 focus:ring-[var(--cs-accent-light)] transition-all"
                 />
               </div>
               <div>
-                <div className="label-bracket" style={{ marginBottom: 6 }}>confirm</div>
+                <label className="block text-sm font-medium text-[var(--text-main)] mb-1.5">Confirm</label>
                 <input
                   type="password"
                   value={form.confirm}
                   onChange={(e) => update("confirm", e.target.value)}
                   placeholder="Confirm"
                   required
-                  style={inputStyle}
+                  className="w-full bg-[var(--bg-surface)] border border-[var(--cs-border)] rounded-lg px-4 py-3 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:border-[var(--cs-accent)] focus:ring-2 focus:ring-[var(--cs-accent-light)] transition-all"
                 />
               </div>
             </div>
+
             <div>
-              <div className="label-bracket" style={{ marginBottom: 6 }}>primary_role</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <label className="block text-sm font-medium text-[var(--text-main)] mb-2">Primary Role</label>
+              <div className="grid grid-cols-2 gap-2">
                 {ROLES.map((r) => (
                   <button
                     key={r}
                     type="button"
                     onClick={() => update("role", r)}
-                    style={form.role === r ? selectBtnActive : selectBtnBase}
+                    className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition-all cursor-pointer ${
+                      form.role === r
+                        ? "bg-[var(--cs-accent-light)] text-[var(--cs-accent)] border-[var(--cs-accent)]"
+                        : "bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--cs-border)] hover:border-[var(--cs-border-strong)]"
+                    }`}
                   >
                     {r}
                   </button>
                 ))}
               </div>
             </div>
+
             {form.role === "Bowler" && (
               <div>
-                <div className="label-bracket" style={{ marginBottom: 6 }}>bowling_style</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <label className="block text-sm font-medium text-[var(--text-main)] mb-2">Bowling Style</label>
+                <div className="grid grid-cols-2 gap-2">
                   {BOWLING_STYLES.map((s) => (
                     <button
                       key={s}
                       type="button"
                       onClick={() => update("bowlingStyle", s)}
-                      style={form.bowlingStyle === s ? selectBtnActive : selectBtnBase}
+                      className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition-all cursor-pointer ${
+                        form.bowlingStyle === s
+                          ? "bg-[var(--cs-accent-light)] text-[var(--cs-accent)] border-[var(--cs-accent)]"
+                          : "bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--cs-border)] hover:border-[var(--cs-border-strong)]"
+                      }`}
                     >
                       {s}
                     </button>
@@ -176,35 +201,66 @@ export default function SignupPage() {
                 </div>
               </div>
             )}
+
             <div>
-              <div className="label-bracket" style={{ marginBottom: 6 }}>skill_level</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+              <label className="block text-sm font-medium text-[var(--text-main)] mb-2">Skill Level</label>
+              <div className="grid grid-cols-3 gap-2">
                 {SKILL_LEVELS.map((s) => (
                   <button
                     key={s}
                     type="button"
                     onClick={() => update("skillLevel", s)}
-                    style={form.skillLevel === s ? selectBtnActive : selectBtnBase}
+                    className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition-all cursor-pointer ${
+                      form.skillLevel === s
+                        ? "bg-[var(--cs-accent-light)] text-[var(--cs-accent)] border-[var(--cs-accent)]"
+                        : "bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--cs-border)] hover:border-[var(--cs-border-strong)]"
+                    }`}
                   >
                     {s}
                   </button>
                 ))}
               </div>
             </div>
+
             <button
               type="submit"
               disabled={loading}
-              className="btn btn-primary"
-              style={{ padding: '8px 8px 8px 24px', fontSize: 14, width: '100%', opacity: loading ? 0.5 : 1 }}
+              className="btn btn-primary w-full py-3 text-base disabled:opacity-50"
             >
               {loading ? "Creating account..." : "Create Account"}
-              <div className="btn-icon-circle" style={{ width: 28, height: 28 }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-              </div>
+              <ArrowRight className="w-4 h-4" />
             </button>
-            <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
+
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={loading}
+              className="btn btn-secondary w-full py-3 text-base disabled:opacity-50"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l3.66-2.84z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                />
+              </svg>
+              Continue with Google
+            </button>
+
+            <p className="text-center text-sm text-[var(--text-muted)]">
               Already have an account?{" "}
-              <Link href="/login" style={{ color: 'var(--cs-accent)', textDecoration: 'none' }}>
+              <Link href="/login" className="text-[var(--cs-accent)] font-medium hover:underline no-underline">
                 Sign in
               </Link>
             </p>

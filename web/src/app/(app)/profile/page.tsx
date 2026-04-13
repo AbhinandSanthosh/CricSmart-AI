@@ -42,56 +42,46 @@ export default function ProfilePage() {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 24 }}>
-      <div style={{ gridColumn: 'span 12', padding: '20px 0' }}>
-        <div className="label-bracket" style={{ marginBottom: 12 }}>player_profile</div>
-        <h1 style={{ fontSize: 48, background: 'linear-gradient(180deg, #ffffff 0%, #909ab0 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.03em' }}>
-          PROFILE
-        </h1>
+    <div className="grid grid-cols-12 gap-6">
+      <div className="col-span-12 py-5">
+        <p className="label-bracket mb-3">player_profile</p>
+        <h1 className="text-4xl font-bold text-[var(--text-main)] tracking-tight">Profile</h1>
       </div>
 
       {/* User Card */}
-      <div className="panel" style={{ gridColumn: 'span 12' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+      <div className="panel col-span-12">
+        <div className="flex items-center gap-5">
           {/* Profile Photo */}
-          <div style={{ position: 'relative', flexShrink: 0 }}>
+          <div className="relative shrink-0">
             <div
               onClick={() => fileRef.current?.click()}
+              className="w-20 h-20 rounded-full cursor-pointer flex items-center justify-center border-[3px] border-[var(--cs-border-strong)] transition-all text-[28px] font-black text-black"
               style={{
-                width: 80, height: 80, borderRadius: '50%', cursor: 'pointer',
                 background: user.profile_photo ? `url(${user.profile_photo}) center/cover` : 'linear-gradient(135deg, #16a34a 0%, #22c55e 50%, #4ade80 100%)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                border: '3px solid var(--cs-border-strong)', transition: 'all 0.3s',
-                fontSize: 28, fontFamily: 'var(--font-display)', fontWeight: 900, fontStyle: 'italic', color: '#000',
               }}
             >
               {!user.profile_photo && user.username?.charAt(0).toUpperCase()}
-              <div style={{
-                position: 'absolute', bottom: 0, right: 0, width: 28, height: 28,
-                background: 'var(--cs-accent)', borderRadius: '50%',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                border: '2px solid var(--bg-base)',
-              }}>
-                <Camera style={{ width: 14, height: 14, color: '#000' }} />
+              <div className="absolute bottom-0 right-0 w-7 h-7 bg-[var(--cs-accent)] rounded-full flex items-center justify-center border-2 border-[var(--bg-base)]">
+                <Camera className="w-3.5 h-3.5 text-black" />
               </div>
             </div>
-            <input ref={fileRef} type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: 'none' }} />
+            <input ref={fileRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
             {uploading && (
-              <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'var(--cs-accent)' }}>
+              <div className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center text-[10px] text-[var(--cs-accent)]">
                 ...
               </div>
             )}
           </div>
           <div>
-            <h2 style={{ fontSize: 28, marginBottom: 4 }}>{user.username?.toUpperCase()}</h2>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{user.email}</div>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <h2 className="text-2xl font-bold text-[var(--text-main)] mb-1">{user.username}</h2>
+            <div className="text-xs text-[var(--text-muted)] mb-1">{user.email}</div>
+            <div className="flex gap-3 items-center">
               <span className="label-bracket">{user.primary_role}</span>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{user.skill_level}</span>
+              <span className="text-xs text-[var(--text-muted)]">{user.skill_level}</span>
             </div>
             {user.created_at && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
-                <Calendar style={{ width: 12, height: 12 }} />
+              <div className="flex items-center gap-1.5 mt-2 text-xs text-[var(--text-muted)]">
+                <Calendar className="w-3 h-3" />
                 Joined {new Date(user.created_at).toLocaleDateString()}
               </div>
             )}
@@ -100,14 +90,14 @@ export default function ProfilePage() {
       </div>
 
       {/* Stats */}
-      <div className="stats-strip" style={{ gridColumn: 'span 12' }}>
+      <div className="stats-strip col-span-12">
         <div className="stat-box">
           <div className="label-bracket">total_sessions</div>
           <div className="stat-val">--</div>
         </div>
         <div className="stat-box">
           <div className="label-bracket">avg_stance_score</div>
-          <div className="stat-val">--<span style={{ fontSize: 18, color: 'var(--text-muted)' }}> %</span></div>
+          <div className="stat-val">--<span className="text-lg text-[var(--text-muted)]"> %</span></div>
         </div>
         <div className="stat-box">
           <div className="label-bracket">drills_done</div>
@@ -116,24 +106,24 @@ export default function ProfilePage() {
       </div>
 
       {/* Quick Actions */}
-      <div className="panel" style={{ gridColumn: 'span 6' }}>
+      <div className="panel col-span-12 md:col-span-6">
         <div className="panel-header">
           <span className="label-bracket">actions</span>
-          <h2 className="panel-title">QUICK START</h2>
+          <h2 className="panel-title">Quick Start</h2>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="flex flex-col gap-2.5">
           {[
-            { href: "/biometric", icon: Activity, label: "STANCE CHECKUP", desc: "Analyze your batting stance" },
-            { href: "/drills", icon: Dumbbell, label: "FOOTWORK PRACTICE", desc: "Start a training drill" },
-            { href: "/mentor", icon: MessageCircle, label: "CHAT WITH COACH", desc: "Get coaching advice" },
+            { href: "/biometric", icon: Activity, label: "Stance Checkup", desc: "Analyze your batting stance" },
+            { href: "/drills", icon: Dumbbell, label: "Footwork Practice", desc: "Start a training drill" },
+            { href: "/mentor", icon: MessageCircle, label: "Chat with Coach", desc: "Get coaching advice" },
           ].map((action) => (
-            <Link key={action.href} href={action.href} style={{ textDecoration: 'none', color: 'inherit' }}>
+            <Link key={action.href} href={action.href} className="no-underline text-inherit">
               <div className="drill-item">
                 <div className="drill-info">
                   <h4>{action.label}</h4>
                   <p>{action.desc}</p>
                 </div>
-                <action.icon style={{ width: 20, height: 20, color: 'var(--cs-accent)' }} />
+                <action.icon className="w-5 h-5 text-[var(--cs-accent)]" />
               </div>
             </Link>
           ))}
@@ -141,12 +131,12 @@ export default function ProfilePage() {
       </div>
 
       {/* Recent Activity */}
-      <div className="panel" style={{ gridColumn: 'span 6' }}>
+      <div className="panel col-span-12 md:col-span-6">
         <div className="panel-header">
           <span className="label-bracket">activity_log</span>
-          <h2 className="panel-title">RECENT</h2>
+          <h2 className="panel-title">Recent</h2>
         </div>
-        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontSize: 13 }}>
+        <div className="text-center py-10 text-[var(--text-muted)] text-[13px]">
           No activity yet. Start a session to see your progress here!
         </div>
       </div>

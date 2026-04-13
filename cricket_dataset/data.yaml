@@ -1,0 +1,13 @@
+names:
+- ball
+- stump
+nc: 2
+roboflow:
+  license: CC BY 4.0
+  project: cricket-dataset-z2wkt
+  url: https://universe.roboflow.com/cricket-ball-tracking-dataset/cricket-dataset-z2wkt/dataset/1
+  version: 1
+  workspace: cricket-ball-tracking-dataset
+test: /Users/abhinav/start up/CricSmart-AI/cricket_dataset/test/images
+train: /Users/abhinav/start up/CricSmart-AI/cricket_dataset/train/images
+val: /Users/abhinav/start up/CricSmart-AI/cricket_dataset/valid/images

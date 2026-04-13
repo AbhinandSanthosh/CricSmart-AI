@@ -51,140 +51,131 @@ export default function SettingsPage() {
     reader.readAsDataURL(file);
   }
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--cs-border-strong)',
-    borderRadius: 12, padding: '12px 16px', color: 'var(--text-main)', fontFamily: 'var(--font-ui)',
-    fontSize: 13, transition: 'all 0.3s',
-  };
+  const inputClasses = "w-full bg-[var(--bg-surface)] border border-[var(--cs-border)] rounded-lg px-4 py-3 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:border-[var(--cs-accent)] focus:ring-2 focus:ring-[var(--cs-accent-light)] transition-all";
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 24, maxWidth: 800 }}>
-      <div style={{ gridColumn: 'span 12', padding: '20px 0' }}>
-        <div className="label-bracket" style={{ marginBottom: 12 }}>account_settings</div>
-        <h1 style={{ fontSize: 48, background: 'linear-gradient(180deg, #ffffff 0%, #909ab0 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.03em' }}>
-          SETTINGS
-        </h1>
+    <div className="grid grid-cols-12 gap-6 max-w-[800px]">
+      <div className="col-span-12 py-5">
+        <p className="label-bracket mb-3">account_settings</p>
+        <h1 className="text-4xl font-bold text-[var(--text-main)] tracking-tight">Settings</h1>
       </div>
 
       {/* Profile Photo */}
-      <div className="panel" style={{ gridColumn: 'span 12' }}>
+      <div className="panel col-span-12">
         <div className="panel-header">
           <span className="label-bracket">avatar</span>
-          <h2 className="panel-title">PROFILE PHOTO</h2>
+          <h2 className="panel-title">Profile Photo</h2>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-          <div style={{ position: 'relative' }}>
+        <div className="flex items-center gap-6">
+          <div className="relative">
             <div
               onClick={() => fileRef.current?.click()}
+              className="w-20 h-20 rounded-full cursor-pointer flex items-center justify-center border-[3px] border-[var(--cs-border-strong)] transition-all text-[28px] font-black text-black"
               style={{
-                width: 80, height: 80, borderRadius: '50%', cursor: 'pointer',
                 background: user?.profile_photo ? `url(${user.profile_photo}) center/cover` : 'linear-gradient(135deg, #16a34a 0%, #22c55e 50%, #4ade80 100%)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                border: '3px solid var(--cs-border-strong)', transition: 'all 0.3s',
-                fontSize: 28, fontFamily: 'var(--font-display)', fontWeight: 900, fontStyle: 'italic', color: '#000',
               }}
             >
               {!user?.profile_photo && user?.username?.charAt(0).toUpperCase()}
-              <div style={{ position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, background: 'var(--cs-accent)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg-base)' }}>
-                <Camera style={{ width: 14, height: 14, color: '#000' }} />
+              <div className="absolute bottom-0 right-0 w-7 h-7 bg-[var(--cs-accent)] rounded-full flex items-center justify-center border-2 border-[var(--bg-base)]">
+                <Camera className="w-3.5 h-3.5 text-black" />
               </div>
             </div>
-            <input ref={fileRef} type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: 'none' }} />
-            {uploading && <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'var(--cs-accent)' }}>...</div>}
+            <input ref={fileRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+            {uploading && <div className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center text-[10px] text-[var(--cs-accent)]">...</div>}
           </div>
           <div>
-            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-main)' }}>{user?.username}</p>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Click on the photo to upload a new image (max 2MB)</p>
+            <p className="text-sm font-semibold text-[var(--text-main)]">{user?.username}</p>
+            <p className="text-xs text-[var(--text-muted)] mt-1">Click on the photo to upload a new image (max 2MB)</p>
           </div>
         </div>
       </div>
 
       {/* Profile Info */}
-      <div className="panel" style={{ gridColumn: 'span 12' }}>
+      <div className="panel col-span-12">
         <div className="panel-header">
           <span className="label-bracket">profile</span>
-          <h2 className="panel-title">INFORMATION</h2>
+          <h2 className="panel-title">Information</h2>
         </div>
-        <form onSubmit={saveProfile} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <form onSubmit={saveProfile} className="flex flex-col gap-4">
           <div>
-            <div className="label-bracket" style={{ marginBottom: 6 }}>display_name</div>
-            <input value={user?.username || ""} disabled style={{ ...inputStyle, opacity: 0.5, cursor: 'not-allowed' }} />
+            <div className="label-bracket mb-1.5">display_name</div>
+            <input value={user?.username || ""} disabled className={`${inputClasses} opacity-50 cursor-not-allowed`} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <div className="label-bracket" style={{ marginBottom: 6 }}>email</div>
-              <input value={user?.email || ""} disabled style={{ ...inputStyle, opacity: 0.5, cursor: 'not-allowed' }} />
-              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Email is used for login and cannot be changed</p>
+              <div className="label-bracket mb-1.5">email</div>
+              <input value={user?.email || ""} disabled className={`${inputClasses} opacity-50 cursor-not-allowed`} />
+              <p className="text-[11px] text-[var(--text-muted)] mt-1">Email is used for login and cannot be changed</p>
             </div>
             <div>
-              <div className="label-bracket" style={{ marginBottom: 6 }}>phone</div>
-              <input value={profileForm.phone} onChange={(e) => setProfileForm((p) => ({ ...p, phone: e.target.value }))} placeholder="+1 234 567 890" style={inputStyle} />
+              <div className="label-bracket mb-1.5">phone</div>
+              <input value={profileForm.phone} onChange={(e) => setProfileForm((p) => ({ ...p, phone: e.target.value }))} placeholder="+1 234 567 890" className={inputClasses} />
             </div>
           </div>
-          <button type="submit" className="btn btn-primary" style={{ padding: '8px 8px 8px 24px', fontSize: 14, alignSelf: 'flex-start' }}>
+          <button type="submit" className="btn btn-primary self-start" style={{ padding: '8px 8px 8px 24px', fontSize: 14 }}>
             Save Changes
             <div className="btn-icon-circle" style={{ width: 28, height: 28 }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 13l4 4L19 7" /></svg>
             </div>
           </button>
-          {profileMsg && <p style={{ fontSize: 13, color: 'var(--cs-accent)' }}>{profileMsg}</p>}
+          {profileMsg && <p className="text-sm text-[var(--cs-accent)]">{profileMsg}</p>}
         </form>
       </div>
 
       {/* Password */}
-      <div className="panel" style={{ gridColumn: 'span 12' }}>
+      <div className="panel col-span-12">
         <div className="panel-header">
           <span className="label-bracket">security</span>
-          <h2 className="panel-title">PASSWORD</h2>
+          <h2 className="panel-title">Password</h2>
         </div>
-        <form onSubmit={changePassword} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <form onSubmit={changePassword} className="flex flex-col gap-4">
           <div>
-            <div className="label-bracket" style={{ marginBottom: 6 }}>current_password</div>
-            <input type="password" value={passwordForm.current} onChange={(e) => setPasswordForm((p) => ({ ...p, current: e.target.value }))} required style={inputStyle} />
+            <div className="label-bracket mb-1.5">current_password</div>
+            <input type="password" value={passwordForm.current} onChange={(e) => setPasswordForm((p) => ({ ...p, current: e.target.value }))} required className={inputClasses} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <div className="label-bracket" style={{ marginBottom: 6 }}>new_password</div>
-              <input type="password" value={passwordForm.newPass} onChange={(e) => setPasswordForm((p) => ({ ...p, newPass: e.target.value }))} required style={inputStyle} />
+              <div className="label-bracket mb-1.5">new_password</div>
+              <input type="password" value={passwordForm.newPass} onChange={(e) => setPasswordForm((p) => ({ ...p, newPass: e.target.value }))} required className={inputClasses} />
             </div>
             <div>
-              <div className="label-bracket" style={{ marginBottom: 6 }}>confirm</div>
-              <input type="password" value={passwordForm.confirm} onChange={(e) => setPasswordForm((p) => ({ ...p, confirm: e.target.value }))} required style={inputStyle} />
+              <div className="label-bracket mb-1.5">confirm</div>
+              <input type="password" value={passwordForm.confirm} onChange={(e) => setPasswordForm((p) => ({ ...p, confirm: e.target.value }))} required className={inputClasses} />
             </div>
           </div>
-          <button type="submit" className="btn btn-primary" style={{ padding: '8px 8px 8px 24px', fontSize: 14, alignSelf: 'flex-start' }}>
+          <button type="submit" className="btn btn-primary self-start" style={{ padding: '8px 8px 8px 24px', fontSize: 14 }}>
             Change Password
             <div className="btn-icon-circle" style={{ width: 28, height: 28 }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 13l4 4L19 7" /></svg>
             </div>
           </button>
-          {passwordMsg && <p style={{ fontSize: 13, color: 'var(--cs-accent)' }}>{passwordMsg}</p>}
+          {passwordMsg && <p className="text-sm text-[var(--cs-accent)]">{passwordMsg}</p>}
         </form>
       </div>
 
       {/* AI Services */}
-      <div className="panel" style={{ gridColumn: 'span 12' }}>
+      <div className="panel col-span-12">
         <div className="panel-header">
           <span className="label-bracket">integrations</span>
-          <h2 className="panel-title">AI SERVICES</h2>
+          <h2 className="panel-title">AI Services</h2>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ padding: 16, borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--cs-border)' }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontStyle: 'italic', fontSize: 16 }}>OLLAMA (LOCAL AI)</div>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-              For AI Mentor chat, install Ollama and run: <code style={{ color: 'var(--cs-accent)' }}>ollama run llama3.2</code>
+        <div className="flex flex-col gap-2.5">
+          <div className="p-4 rounded-lg bg-[var(--bg-surface)] border border-[var(--cs-border)]">
+            <div className="text-base font-bold text-[var(--text-main)]">Ollama (Local AI)</div>
+            <p className="text-xs text-[var(--text-muted)] mt-1">
+              For AI Mentor chat, install Ollama and run: <code className="text-[var(--cs-accent)]">ollama run llama3.2</code>
             </p>
           </div>
-          <div style={{ padding: 16, borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--cs-border)' }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontStyle: 'italic', fontSize: 16 }}>BALL TRACKING ML</div>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-              Start the Python service: <code style={{ color: 'var(--cs-accent)' }}>cd ml-service && python server.py</code>
+          <div className="p-4 rounded-lg bg-[var(--bg-surface)] border border-[var(--cs-border)]">
+            <div className="text-base font-bold text-[var(--text-main)]">Ball Tracking ML</div>
+            <p className="text-xs text-[var(--text-muted)] mt-1">
+              Start the Python service: <code className="text-[var(--cs-accent)]">cd ml-service && python server.py</code>
             </p>
           </div>
-          <div style={{ padding: 16, borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--cs-border)' }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontStyle: 'italic', fontSize: 16 }}>CRICAPI (LIVE SCORES)</div>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-              Set <code style={{ color: 'var(--cs-accent)' }}>CRICAPI_KEY</code> in <code>.env.local</code> for live match data
+          <div className="p-4 rounded-lg bg-[var(--bg-surface)] border border-[var(--cs-border)]">
+            <div className="text-base font-bold text-[var(--text-main)]">CricAPI (Live Scores)</div>
+            <p className="text-xs text-[var(--text-muted)] mt-1">
+              Set <code className="text-[var(--cs-accent)]">CRICAPI_KEY</code> in <code>.env.local</code> for live match data
             </p>
           </div>
         </div>

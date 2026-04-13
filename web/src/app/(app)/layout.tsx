@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/store/auth";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   Home,
   Activity,
@@ -15,6 +16,7 @@ import {
   LogOut,
   Menu,
   X,
+  ArrowRight,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -27,27 +29,35 @@ const NAV_ITEMS = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
+const PAGE_LABELS: Record<string, string> = {
+  "/dashboard": "Dashboard",
+  "/biometric": "Biometrics Lab",
+  "/ball-tracking": "Ball Tracking",
+  "/drills": "Training Academy",
+  "/mentor": "AI Coach",
+  "/profile": "Profile",
+  "/settings": "Settings",
+  "/admin": "Admin Panel",
+};
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, loading, fetchUser, logout: doLogout } = useAuth();
+  const { user, firebaseUser, initialized, logout: doLogout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
-
-  useEffect(() => {
-    if (!loading && !user) {
+    if (initialized && !firebaseUser) {
       router.replace("/login");
     }
-  }, [loading, user, router]);
+  }, [initialized, firebaseUser, router]);
 
-  if (loading) {
+  if (!initialized) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-pulse" style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontStyle: 'italic', fontSize: 18, color: 'var(--cs-accent)', letterSpacing: '0.1em', textTransform: 'uppercase' as const }}>
-          Loading...
+      <div className="flex items-center justify-center min-h-screen bg-[var(--bg-base)]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-3 border-[var(--cs-accent)] border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm font-medium text-[var(--text-muted)]">Loading...</span>
         </div>
       </div>
     );
@@ -60,33 +70,38 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     router.replace("/login");
   }
 
+  const pageLabel = PAGE_LABELS[pathname] || "CricEye AI";
+
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      {/* ── Desktop Sidebar ── */}
+    <div className="flex h-screen overflow-hidden bg-[var(--bg-base)]">
+      {/* Desktop Sidebar */}
       <aside className="cs-sidebar hidden md:flex flex-col">
         {/* Brand */}
         <div className="cs-brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/criceye-logo.png" alt="CricEye" className="cs-brand-logo" />
+          <img src="/criceye-mark.png" alt="CricEye" className="w-8 h-8" />
+          <span className="text-base font-bold text-[var(--text-main)] ml-2.5">CricEye AI</span>
         </div>
 
         {/* Nav */}
-        <ul style={{ listStyle: 'none', padding: '0 16px', flex: 1 }}>
-          {NAV_ITEMS.map((item) => {
-            const active = pathname === item.href;
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={`nav-item ${active ? "active" : ""}`}
-                >
-                  <item.icon style={{ width: 16, height: 16 }} />
-                  {item.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <nav className="flex-1 px-3">
+          <ul className="list-none p-0 m-0">
+            {NAV_ITEMS.map((item) => {
+              const active = pathname === item.href;
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={`nav-item ${active ? "active" : ""}`}
+                  >
+                    <item.icon className="w-[18px] h-[18px]" />
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
 
         {/* User profile */}
         <div className="user-profile">
@@ -99,107 +114,98 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           >
             {!user?.profile_photo && user?.username?.charAt(0).toUpperCase()}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-main)' }}>
+          <div className="flex flex-col flex-1 min-w-0">
+            <span className="text-sm font-semibold text-[var(--text-main)] truncate">
               {user?.username}
             </span>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+            <span className="text-xs text-[var(--text-muted)] truncate">
               {user?.primary_role} &middot; {user?.skill_level}
             </span>
           </div>
         </div>
 
         {/* Logout */}
-        <div style={{ padding: '0 16px 16px' }}>
+        <div className="px-3 pb-4">
           <button
             onClick={handleLogout}
-            className="nav-item"
-            style={{ width: '100%', cursor: 'pointer', background: 'none', border: 'none', color: 'var(--text-muted)' }}
+            className="nav-item w-full cursor-pointer bg-transparent border-none text-[var(--text-muted)]"
           >
-            <LogOut style={{ width: 16, height: 16 }} />
+            <LogOut className="w-[18px] h-[18px]" />
             Logout
           </button>
         </div>
       </aside>
 
-      {/* ── Main content area ── */}
-      <main className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', position: 'relative', zIndex: 1 }}>
+      {/* Main content area */}
+      <main className="flex-1 flex flex-col overflow-y-auto relative z-1">
         {/* Header bar */}
         <header className="header-top">
           {/* Mobile menu button */}
           <div className="md:hidden">
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
-              style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer' }}
+              className="bg-transparent border-none text-[var(--text-main)] cursor-pointer p-1"
             >
-              {mobileOpen ? <X style={{ width: 20, height: 20 }} /> : <Menu style={{ width: 20, height: 20 }} />}
+              {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
-          <div className="label-bracket hidden md:block">
-            {pathname === '/dashboard' ? 'academy_session_active' :
-             pathname === '/biometric' ? 'pose_detection_active' :
-             pathname === '/ball-tracking' ? 'ball_tracking_module' :
-             pathname === '/drills' ? 'training_academy' :
-             pathname === '/mentor' ? 'ai_mentor_v2' :
-             pathname === '/profile' ? 'player_profile' :
-             pathname === '/settings' ? 'account_settings' :
-             pathname === '/admin' ? 'admin_panel' : 'criceye_ai'}
-          </div>
-          <div className="header-actions" style={{ display: 'flex', gap: 12 }}>
-            <Link href="/biometric" className="btn btn-secondary header-stance-btn" style={{ padding: '8px 20px', fontSize: 14, textDecoration: 'none' }}>
+
+          {/* Page title */}
+          <h1 className="hidden md:block text-lg font-semibold text-[var(--text-main)]">
+            {pageLabel}
+          </h1>
+
+          {/* Header actions */}
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Link href="/biometric" className="btn btn-secondary header-stance-btn text-sm no-underline">
               Stance Lab
             </Link>
-            <Link href="/drills" className="btn btn-primary" style={{ padding: '6px 6px 6px 20px', fontSize: 14, textDecoration: 'none' }}>
-              <span className="hidden sm:inline">Start </span>Drill
-              <div className="btn-icon-circle" style={{ width: 28, height: 28, fontSize: 16 }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="square"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-              </div>
+            <Link href="/drills" className="btn btn-primary text-sm no-underline">
+              Start Drill
+              <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </header>
 
         {/* Mobile nav dropdown */}
         {mobileOpen && (
-          <div className="md:hidden" style={{ position: 'absolute', top: 73, left: 0, right: 0, zIndex: 50, background: 'rgba(8, 9, 12, 0.95)', backdropFilter: 'blur(20px)', borderBottom: '1px solid var(--cs-border)', padding: 16 }}>
-            <ul style={{ listStyle: 'none', padding: 0 }}>
-              {NAV_ITEMS.map((item) => {
-                const active = pathname === item.href;
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      onClick={() => setMobileOpen(false)}
-                      className={`nav-item ${active ? "active" : ""}`}
-                    >
-                      <item.icon style={{ width: 16, height: 16 }} />
-                      {item.label}
-                    </Link>
-                  </li>
-                );
-              })}
-              <li style={{ borderTop: '1px solid var(--cs-border)', marginTop: 8, paddingTop: 8 }}>
-                <button
-                  onClick={() => { setMobileOpen(false); handleLogout(); }}
-                  className="nav-item"
-                  style={{ width: '100%', cursor: 'pointer', background: 'none', border: 'none', color: 'var(--text-muted)' }}
-                >
-                  <LogOut style={{ width: 16, height: 16 }} />
-                  Logout
-                </button>
-              </li>
-            </ul>
+          <div className="md:hidden absolute top-[57px] left-0 right-0 z-50 bg-[var(--bg-panel)] border-b border-[var(--cs-border)] shadow-lg">
+            <nav className="p-3">
+              <ul className="list-none p-0 m-0">
+                {NAV_ITEMS.map((item) => {
+                  const active = pathname === item.href;
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={() => setMobileOpen(false)}
+                        className={`nav-item ${active ? "active" : ""}`}
+                      >
+                        <item.icon className="w-[18px] h-[18px]" />
+                        {item.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+                <li className="border-t border-[var(--cs-border)] mt-2 pt-2">
+                  <button
+                    onClick={() => { setMobileOpen(false); handleLogout(); }}
+                    className="nav-item w-full cursor-pointer bg-transparent border-none text-[var(--text-muted)]"
+                  >
+                    <LogOut className="w-[18px] h-[18px]" />
+                    Logout
+                  </button>
+                </li>
+              </ul>
+            </nav>
           </div>
         )}
 
         {/* Page content */}
-        <div className="page-content" style={{ padding: '40px', maxWidth: 1600 }}>
+        <div className="p-8 max-w-[1600px] max-md:p-4">
           {children}
         </div>
-        <style>{`
-          @media (max-width: 768px) {
-            .page-content { padding: 16px !important; }
-          }
-        `}</style>
       </main>
     </div>
   );

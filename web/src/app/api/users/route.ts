@@ -1,10 +1,15 @@
-import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
+import { verifyToken, isAdmin } from "@/lib/auth";
 import { ensureDb } from "@/lib/db";
 
-export async function GET() {
-  const user = await getCurrentUser();
-  if (!user || user.is_admin !== 1) {
+export async function GET(req: NextRequest) {
+  const decodedToken = await verifyToken(req.headers.get("authorization"));
+  if (!decodedToken) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const admin = await isAdmin(decodedToken.uid);
+  if (!admin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
