@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "cricsmart-web",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["-c", "cd '/Users/abhinav/start up/CricSmart-AI/web' && npm run dev"],
+      "port": 3000
+    }
+  ]
+}
