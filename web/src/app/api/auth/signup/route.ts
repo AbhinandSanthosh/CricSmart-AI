@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const { username, role, skillLevel, bowlingStyle } = await req.json();
+    const { username, role, skillLevel, bowlingStyle, photoUrl } = await req.json();
     if (!username || !role || !skillLevel) {
       return NextResponse.json(
         { error: "username, role, and skillLevel are required" },
@@ -22,7 +22,8 @@ export async function POST(req: NextRequest) {
       username,
       role,
       skillLevel,
-      bowlingStyle
+      bowlingStyle,
+      photoUrl
     );
 
     return NextResponse.json({ user });

@@ -66,7 +66,8 @@ export async function createUserProfile(
   username: string,
   role: string,
   skillLevel: string,
-  bowlingStyle?: string
+  bowlingStyle?: string,
+  photoUrl?: string
 ): Promise<User> {
   const db = await ensureDb();
 
@@ -80,8 +81,8 @@ export async function createUserProfile(
   }
 
   await db.execute({
-    sql: "INSERT INTO users (uid, username, email, password, primary_role, skill_level, bowling_style) VALUES (?, ?, ?, '', ?, ?, ?)",
-    args: [uid, username, email, role, skillLevel, bowlingStyle || ""],
+    sql: "INSERT INTO users (uid, username, email, password, primary_role, skill_level, bowling_style, profile_photo) VALUES (?, ?, ?, '', ?, ?, ?, ?)",
+    args: [uid, username, email, role, skillLevel, bowlingStyle || "", photoUrl || ""],
   });
 
   return (await getUserByUid(uid))!;

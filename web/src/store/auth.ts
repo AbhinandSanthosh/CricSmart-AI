@@ -132,6 +132,7 @@ export const useAuth = create<AuthState>((set, get) => ({
           role: "Batter",
           skillLevel: "Beginner",
           bowlingStyle: "",
+          photoUrl: cred.user.photoURL || "",
         }),
       });
       if (profileRes.ok) {
