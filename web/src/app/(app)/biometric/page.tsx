@@ -3,6 +3,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Upload, Camera, RotateCcw, CheckCircle, AlertTriangle, XCircle, Zap } from "lucide-react";
 import { analyzeStance, selectBatsman, CONNECTION_GROUPS, KEY_JOINTS, type AnalysisResult, type Landmark } from "@/lib/pose-analysis";
+import { ProComparison } from "@/components/pro-comparison";
+import { BADGE_DEFINITIONS } from "@/lib/gamification";
 
 type Mode = "upload" | "camera";
 
@@ -111,6 +113,8 @@ export default function BiometricPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
+  const [newBadges, setNewBadges] = useState<string[]>([]);
+  const [streak, setStreak] = useState<{ current: number; best: number } | null>(null);
 
   useEffect(() => {
     return () => {
@@ -238,6 +242,27 @@ export default function BiometricPage() {
       setLandmarks(lm);
       const analysis = analyzeStance(lm);
       setResult(analysis);
+
+      // Save to database
+      try {
+        const { auth } = await import("@/lib/firebase");
+        const token = await auth.currentUser?.getIdToken();
+        if (token) {
+          const saveRes = await fetch("/api/analyses/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ type: "stance", score: analysis.score, data: analysis }),
+          });
+          const saveData = await saveRes.json();
+          if (saveData.newBadges?.length > 0) {
+            setNewBadges(saveData.newBadges);
+          }
+          if (saveData.streak) {
+            setStreak(saveData.streak);
+          }
+        }
+      } catch { /* silently fail */ }
+
       poseLandmarker.close();
     } catch (err) {
       console.error(err);
@@ -457,6 +482,32 @@ export default function BiometricPage() {
                   ))}
                 </div>
               </div>
+
+              {/* Pro Comparison */}
+              <ProComparison result={result} />
+
+              {/* Badge notification */}
+              {newBadges.length > 0 && (
+                <div className="panel col-span-12 border-[var(--cs-accent)]">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="text-lg">🏆</span>
+                    <div>
+                      <h3 className="text-base font-bold text-[var(--cs-accent)]">Badge Earned!</h3>
+                      <p className="text-sm text-[var(--text-muted)]">
+                        {newBadges.map(b => BADGE_DEFINITIONS[b]?.name || b).join(", ")}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Streak indicator */}
+              {streak && streak.current > 0 && (
+                <div className="col-span-12 flex items-center gap-2 text-sm text-[var(--text-muted)]">
+                  🔥 <span className="font-semibold text-[var(--cs-accent)]">{streak.current} day streak</span>
+                  {streak.best > streak.current && <span>· Best: {streak.best} days</span>}
+                </div>
+              )}
             </>
           )}
         </>
