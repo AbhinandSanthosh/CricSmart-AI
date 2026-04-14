@@ -56,6 +56,23 @@ async function initDb(client: Client) {
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
 
+    CREATE TABLE IF NOT EXISTS badges (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      badge_key TEXT NOT NULL,
+      earned_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      UNIQUE(user_id, badge_key)
+    );
+
+    CREATE TABLE IF NOT EXISTS streaks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER UNIQUE NOT NULL,
+      current_streak INTEGER DEFAULT 0,
+      best_streak INTEGER DEFAULT 0,
+      last_activity_date TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
   `);
   _initPromise = null;
 }

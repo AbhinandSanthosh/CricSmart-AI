@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/store/auth";
-import { Activity, Video, Brain, Dumbbell, ChevronRight, Trophy, Zap, ArrowRight } from "lucide-react";
+import { Activity, Video, Brain, Dumbbell, ChevronRight, Trophy, Zap, ArrowRight, TrendingUp } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 interface Match {
   id: string;
@@ -24,6 +25,11 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [matches, setMatches] = useState<Match[]>([]);
   const [news, setNews] = useState<NewsItem[]>([]);
+  const [stats, setStats] = useState<{
+    totalSessions: number; avgScore: number; improvementPct: number; highestScore: number;
+    currentStreak: number; bestStreak: number;
+    recentAnalyses: { id: number; score: number; createdAt: string }[];
+  } | null>(null);
 
   useEffect(() => {
     fetch("/api/live")
@@ -33,6 +39,21 @@ export default function DashboardPage() {
         setNews(data.news || []);
       })
       .catch(() => {});
+
+    // Fetch user stats
+    (async () => {
+      try {
+        const { auth } = await import("@/lib/firebase");
+        const token = await auth.currentUser?.getIdToken();
+        if (token) {
+          const res = await fetch("/api/analyses/stats", { headers: { Authorization: `Bearer ${token}` } });
+          if (res.ok) {
+            const data = await res.json();
+            setStats(data.stats);
+          }
+        }
+      } catch {}
+    })();
   }, []);
 
   const liveMatches = matches.filter((m) => m.state === "live");
@@ -92,17 +113,70 @@ export default function DashboardPage() {
       <div className="stats-strip col-span-12">
         <div className="stat-box">
           <div className="label-bracket">Total Sessions</div>
-          <div className="stat-val">--</div>
+          <div className="stat-val">{stats?.totalSessions ?? "--"}</div>
         </div>
         <div className="stat-box">
           <div className="label-bracket">Avg Stance Score</div>
-          <div className="stat-val">--<span className="text-lg text-[var(--text-muted)]"> %</span></div>
+          <div className="stat-val">{stats?.avgScore ? `${stats.avgScore}` : "--"}<span className="text-lg text-[var(--text-muted)]"> %</span></div>
         </div>
         <div className="stat-box">
           <div className="label-bracket">Drills Completed</div>
           <div className="stat-val">--</div>
         </div>
       </div>
+
+      {stats && stats.currentStreak > 0 && (
+        <div className="col-span-12 flex items-center gap-2 text-sm">
+          <span role="img" aria-label="fire">&#x1F525;</span> <span className="font-semibold text-[var(--cs-accent)]">{stats.currentStreak} day streak</span>
+          {stats.bestStreak > stats.currentStreak && (
+            <span className="text-[var(--text-muted)]">&middot; Best: {stats.bestStreak} days</span>
+          )}
+        </div>
+      )}
+
+      {/* Performance Analytics */}
+      {stats && stats.recentAnalyses && stats.recentAnalyses.length >= 2 && (
+        <div className="panel col-span-12">
+          <div className="panel-header">
+            <span className="label-bracket flex items-center gap-2">
+              <TrendingUp className="w-3.5 h-3.5" /> Performance Trend
+            </span>
+            <h2 className="panel-title">Score Progress</h2>
+          </div>
+          <div className="flex gap-6 mb-4 flex-wrap">
+            <div>
+              <div className="text-xs text-[var(--text-muted)] mb-1">Improvement</div>
+              <div className="text-lg font-bold" style={{ color: stats.improvementPct >= 0 ? '#22c55e' : 'var(--cs-danger)' }}>
+                {stats.improvementPct >= 0 ? '+' : ''}{stats.improvementPct}%
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-[var(--text-muted)] mb-1">Highest Score</div>
+              <div className="text-lg font-bold text-[var(--cs-accent)]">{stats.highestScore}%</div>
+            </div>
+            <div>
+              <div className="text-xs text-[var(--text-muted)] mb-1">Sessions</div>
+              <div className="text-lg font-bold text-[var(--text-main)]">{stats.totalSessions}</div>
+            </div>
+          </div>
+          <div className="h-[200px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={[...stats.recentAnalyses].reverse().map((a) => ({
+                date: new Date(a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                score: a.score,
+              }))}>
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} width={30} />
+                <Tooltip
+                  contentStyle={{ background: 'var(--bg-panel)', border: '1px solid var(--cs-border)', borderRadius: 8, fontSize: 13 }}
+                  labelStyle={{ color: 'var(--text-muted)' }}
+                />
+                <Line type="monotone" dataKey="score" stroke="var(--cs-accent)" strokeWidth={2.5} dot={{ r: 4, fill: 'var(--cs-accent)' }} activeDot={{ r: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
 
       {/* Live Match */}
       <div className="panel col-span-12 md:col-span-6">
