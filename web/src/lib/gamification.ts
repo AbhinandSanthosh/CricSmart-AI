@@ -210,6 +210,21 @@ export async function checkAndAwardBadges(
   return newBadges;
 }
 
+// ─── Drill Completion ───
+
+export async function completeDrill(
+  userId: number,
+  drillName: string,
+  category: string
+): Promise<number> {
+  const db = await ensureDb();
+  const result = await db.execute({
+    sql: "INSERT INTO drill_completions (user_id, drill_name, category) VALUES (?, ?, ?)",
+    args: [userId, drillName, category],
+  });
+  return Number(result.lastInsertRowid);
+}
+
 // ─── User Stats ───
 
 export interface UserStats {
@@ -217,10 +232,13 @@ export interface UserStats {
   avgScore: number;
   improvementPct: number;
   highestScore: number;
+  drillsCompleted: number;
   currentStreak: number;
   bestStreak: number;
   badges: { key: string; earnedAt: string }[];
   recentAnalyses: { id: number; score: number; createdAt: string }[];
+  latestAnalysis: { score: number; headAlignment: string | null; createdAt: string } | null;
+  recentDrills: { id: number; name: string; category: string; completedAt: string }[];
 }
 
 export async function getUserStats(userId: number): Promise<UserStats> {
@@ -290,5 +308,61 @@ export async function getUserStats(userId: number): Promise<UserStats> {
     recentRes.rows as unknown as { id: number; score: number; created_at: string }[]
   ).map((r) => ({ id: Number(r.id), score: Number(r.score), createdAt: r.created_at }));
 
-  return { totalSessions, avgScore, improvementPct, highestScore, currentStreak, bestStreak, badges, recentAnalyses };
+  // Latest analysis with full data (for Stance Lab widget)
+  let latestAnalysis: { score: number; headAlignment: string | null; createdAt: string } | null = null;
+  const latestRes = await db.execute({
+    sql: "SELECT score, data, created_at FROM analyses WHERE user_id = ? AND type = 'stance' ORDER BY created_at DESC LIMIT 1",
+    args: [userId],
+  });
+  if (latestRes.rows.length > 0) {
+    const row = latestRes.rows[0] as unknown as { score: number; data: string; created_at: string };
+    let headAlignment: string | null = null;
+    try {
+      const parsed = JSON.parse(row.data) as AnalysisResult;
+      const eyesMetric = parsed.metrics.find((m) => m.name === "Head & Eyes Level");
+      if (eyesMetric) headAlignment = eyesMetric.value;
+    } catch {
+      /* ignore parse errors */
+    }
+    latestAnalysis = {
+      score: Number(row.score),
+      headAlignment,
+      createdAt: row.created_at,
+    };
+  }
+
+  // Drills completed
+  const drillCountRes = await db.execute({
+    sql: "SELECT COUNT(*) as cnt FROM drill_completions WHERE user_id = ?",
+    args: [userId],
+  });
+  const drillsCompleted = Number((drillCountRes.rows[0] as unknown as { cnt: number }).cnt);
+
+  // Recent drill completions
+  const drillsRes = await db.execute({
+    sql: "SELECT id, drill_name, category, completed_at FROM drill_completions WHERE user_id = ? ORDER BY completed_at DESC LIMIT 10",
+    args: [userId],
+  });
+  const recentDrills = (
+    drillsRes.rows as unknown as { id: number; drill_name: string; category: string; completed_at: string }[]
+  ).map((r) => ({
+    id: Number(r.id),
+    name: r.drill_name,
+    category: r.category || "",
+    completedAt: r.completed_at,
+  }));
+
+  return {
+    totalSessions,
+    avgScore,
+    improvementPct,
+    highestScore,
+    drillsCompleted,
+    currentStreak,
+    bestStreak,
+    badges,
+    recentAnalyses,
+    latestAnalysis,
+    recentDrills,
+  };
 }

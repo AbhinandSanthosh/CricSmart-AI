@@ -23,9 +23,11 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [stats, setStats] = useState<{
     totalSessions: number; avgScore: number; improvementPct: number; highestScore: number;
+    drillsCompleted: number;
     currentStreak: number; bestStreak: number;
     badges: { key: string; earnedAt: string }[];
     recentAnalyses: { id: number; score: number; createdAt: string }[];
+    recentDrills: { id: number; name: string; category: string; completedAt: string }[];
   } | null>(null);
 
   useEffect(() => {
@@ -134,8 +136,8 @@ export default function ProfilePage() {
           <div className="stat-val">{stats?.avgScore ? `${stats.avgScore}` : "--"}<span className="text-lg text-[var(--text-muted)]"> %</span></div>
         </div>
         <div className="stat-box">
-          <div className="label-bracket">drills_done</div>
-          <div className="stat-val">--</div>
+          <div className="label-bracket">Drills Done</div>
+          <div className="stat-val">{stats?.drillsCompleted ?? "--"}</div>
         </div>
       </div>
 

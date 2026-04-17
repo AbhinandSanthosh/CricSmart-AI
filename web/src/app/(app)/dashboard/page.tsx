@@ -27,8 +27,10 @@ export default function DashboardPage() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [stats, setStats] = useState<{
     totalSessions: number; avgScore: number; improvementPct: number; highestScore: number;
+    drillsCompleted: number;
     currentStreak: number; bestStreak: number;
     recentAnalyses: { id: number; score: number; createdAt: string }[];
+    latestAnalysis: { score: number; headAlignment: string | null; createdAt: string } | null;
   } | null>(null);
 
   useEffect(() => {
@@ -121,7 +123,7 @@ export default function DashboardPage() {
         </div>
         <div className="stat-box">
           <div className="label-bracket">Drills Completed</div>
-          <div className="stat-val">--</div>
+          <div className="stat-val">{stats?.drillsCompleted ?? "--"}</div>
         </div>
       </div>
 
@@ -244,19 +246,45 @@ export default function DashboardPage() {
       <div className="panel col-span-12 md:col-span-6 min-h-[300px]">
         <div className="panel-header">
           <span className="label-bracket">Pose Detection</span>
-          <h2 className="panel-title">Stance Lab</h2>
+          <h2 className="panel-title">
+            {stats?.latestAnalysis ? "Latest Analysis" : "Stance Lab"}
+          </h2>
         </div>
         <Link href="/biometric" className="no-underline flex-1 flex">
           <div className="video-container flex-1 min-h-[200px]">
             <span className="text-[var(--text-muted)] font-semibold tracking-wider opacity-30 text-sm">
-              CAMERA FEED
+              {stats?.latestAnalysis ? "TAP TO RUN NEW ANALYSIS" : "CAMERA FEED"}
             </span>
             <div className="analysis-overlay">
-              <div className="metric-val">--<span className="text-base">%</span></div>
+              <div
+                className="metric-val"
+                style={{
+                  color: stats?.latestAnalysis
+                    ? stats.latestAnalysis.score >= 70
+                      ? "#22c55e"
+                      : stats.latestAnalysis.score >= 50
+                      ? "#f59e0b"
+                      : "#ef4444"
+                    : "#fff",
+                }}
+              >
+                {stats?.latestAnalysis ? stats.latestAnalysis.score : "--"}
+                <span className="text-base">%</span>
+              </div>
               <div className="metric-label">STANCE SCORE</div>
               <div className="h-px bg-white/10 my-3" />
-              <div className="metric-val text-[var(--cs-accent)]">0<span className="text-base">&deg;</span></div>
+              <div className="metric-val text-[var(--cs-accent)] text-lg">
+                {stats?.latestAnalysis?.headAlignment ?? "N/A"}
+              </div>
               <div className="metric-label">HEAD ALIGNMENT</div>
+              {stats?.latestAnalysis && (
+                <>
+                  <div className="h-px bg-white/10 my-3" />
+                  <div className="metric-label text-[9px] opacity-70">
+                    {new Date(stats.latestAnalysis.createdAt).toLocaleDateString()}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </Link>
