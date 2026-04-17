@@ -73,6 +73,15 @@ async function initDb(client: Client) {
       last_activity_date TEXT,
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
+
+    CREATE TABLE IF NOT EXISTS drill_completions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      drill_name TEXT NOT NULL,
+      category TEXT DEFAULT '',
+      completed_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
   `);
   _initPromise = null;
 }
