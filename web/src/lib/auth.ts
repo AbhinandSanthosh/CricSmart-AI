@@ -89,11 +89,48 @@ export async function createUserProfile(
 }
 
 /**
- * Check if a Firebase user has admin claims.
+ * Get the list of admin emails from env var (comma-separated).
+ */
+function getAdminEmails(): string[] {
+  const raw = process.env.ADMIN_EMAILS || "";
+  return raw
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter((e) => e.length > 0);
+}
+
+/**
+ * Check if a Firebase user has admin access.
+ * Admin access is granted if:
+ * 1. The user's email is in the ADMIN_EMAILS env var, OR
+ * 2. The user has the custom 'admin' claim set
+ *
+ * If email matches but claim isn't set yet, it will be set automatically
+ * so subsequent checks are fast.
  */
 export async function isAdmin(uid: string): Promise<boolean> {
   try {
     const fbUser = await adminAuth.getUser(uid);
+    const email = fbUser.email?.toLowerCase() || "";
+    const adminEmails = getAdminEmails();
+
+    // Check if email is in the allowlist
+    if (email && adminEmails.includes(email)) {
+      // Auto-grant the claim so future checks persist
+      if (fbUser.customClaims?.admin !== true) {
+        try {
+          await adminAuth.setCustomUserClaims(uid, {
+            ...(fbUser.customClaims || {}),
+            admin: true,
+          });
+        } catch {
+          /* claim setting is best-effort */
+        }
+      }
+      return true;
+    }
+
+    // Fallback to existing custom claim
     return fbUser.customClaims?.admin === true;
   } catch {
     return false;
