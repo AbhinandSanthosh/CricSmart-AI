@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/store/auth";
-import { Target, Footprints, Zap, Gamepad2, Clock, ChevronRight, Dumbbell, Shield, Eye } from "lucide-react";
+import { Target, Footprints, Zap, Gamepad2, Clock, ChevronRight, Dumbbell, Shield, Eye, Check } from "lucide-react";
 
 interface Drill {
   name: string;
@@ -186,7 +186,38 @@ export default function DrillsPage() {
   const userRole = user?.primary_role || "Batter";
   const [activeRole, setActiveRole] = useState(userRole === "Wicketkeeper" ? "Wicketkeeper" : userRole === "All-Rounder" ? "All-Rounder" : userRole);
   const [selectedDrill, setSelectedDrill] = useState<Drill | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"drills" | "plan">("drills");
+  const [completing, setCompleting] = useState(false);
+  const [completedMsg, setCompletedMsg] = useState("");
+
+  async function markDrillComplete(drill: Drill, category: string) {
+    if (completing) return;
+    setCompleting(true);
+    setCompletedMsg("");
+    try {
+      const { auth } = await import("@/lib/firebase");
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) {
+        setCompletedMsg("Please sign in to track progress");
+        return;
+      }
+      const res = await fetch("/api/drills/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ drillName: drill.name, category }),
+      });
+      if (res.ok) {
+        setCompletedMsg(`✓ ${drill.name} marked complete!`);
+      } else {
+        setCompletedMsg("Failed to save drill completion");
+      }
+    } catch {
+      setCompletedMsg("Network error");
+    } finally {
+      setCompleting(false);
+    }
+  }
 
   const drillSets: Record<string, DrillCategory[]> = {
     Batter: BATTER_DRILLS,
@@ -265,6 +296,19 @@ export default function DrillsPage() {
                 Watch tutorial videos <ChevronRight className="w-3.5 h-3.5" />
               </a>
             )}
+            <div className="mt-6 flex items-center gap-3 flex-wrap">
+              <button
+                onClick={() => markDrillComplete(selectedDrill, selectedCategory)}
+                disabled={completing}
+                className="btn btn-primary disabled:opacity-50"
+              >
+                <Check className="w-4 h-4" />
+                {completing ? "Saving..." : "Mark as Completed"}
+              </button>
+              {completedMsg && (
+                <span className="text-sm text-[var(--cs-accent)] font-medium">{completedMsg}</span>
+              )}
+            </div>
           </div>
         ) : (
           currentDrills.map((cat) => (
@@ -276,7 +320,7 @@ export default function DrillsPage() {
               </div>
               <div className="flex flex-col gap-2.5">
                 {cat.drills.map((drill) => (
-                  <div key={drill.name} className="drill-item" onClick={() => setSelectedDrill(drill)}>
+                  <div key={drill.name} className="drill-item" onClick={() => { setSelectedDrill(drill); setSelectedCategory(cat.name); }}>
                     <div className="drill-info">
                       <h4>{drill.name}</h4>
                       <p>{drill.description}</p>
