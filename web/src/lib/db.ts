@@ -1,4 +1,5 @@
 import { createClient, type Client } from "@libsql/client";
+import { seedDrills } from "./drill-seed";
 
 let _client: Client | null = null;
 let _initPromise: Promise<void> | null = null;
@@ -22,6 +23,8 @@ export async function ensureDb(): Promise<Client> {
 
 async function initDb(client: Client) {
   await client.executeMultiple(`
+    PRAGMA foreign_keys = ON;
+
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       uid TEXT UNIQUE,
@@ -82,6 +85,50 @@ async function initDb(client: Client) {
       completed_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
+
+    CREATE TABLE IF NOT EXISTS drills (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      role TEXT NOT NULL,
+      category TEXT NOT NULL,
+      category_icon TEXT DEFAULT 'Target',
+      name TEXT NOT NULL,
+      duration TEXT DEFAULT '',
+      description TEXT DEFAULT '',
+      steps TEXT DEFAULT '[]',
+      video_url TEXT DEFAULT '',
+      sort_order INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(role, name)
+    );
+    CREATE INDEX IF NOT EXISTS idx_drills_role_active ON drills(role, is_active);
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT DEFAULT (datetime('now')),
+      updated_by INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS announcements (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      message TEXT NOT NULL,
+      variant TEXT DEFAULT 'info',
+      is_active INTEGER DEFAULT 0,
+      expires_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
   `);
+
+  // Additive column on users — SQLite has no IF NOT EXISTS for ADD COLUMN.
+  try {
+    await client.execute("ALTER TABLE users ADD COLUMN deactivated_at TEXT");
+  } catch {
+    /* already exists */
+  }
+
+  await seedDrills(client);
   _initPromise = null;
 }
