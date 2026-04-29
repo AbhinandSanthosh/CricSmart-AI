@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/store/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import {
   Home,
   Activity,
@@ -17,9 +18,10 @@ import {
   Menu,
   X,
   ArrowRight,
+  Shield,
 } from "lucide-react";
 
-const NAV_ITEMS = [
+const BASE_NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/biometric", label: "Biometrics Lab", icon: Activity },
   { href: "/ball-tracking", label: "Ball Tracking", icon: Video },
@@ -28,6 +30,8 @@ const NAV_ITEMS = [
   { href: "/profile", label: "Profile", icon: User },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
+
+const ADMIN_NAV_ITEM = { href: "/admin", label: "Admin", icon: Shield };
 
 const PAGE_LABELS: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -38,6 +42,11 @@ const PAGE_LABELS: Record<string, string> = {
   "/profile": "Profile",
   "/settings": "Settings",
   "/admin": "Admin Panel",
+  "/admin/users": "Admin · Users",
+  "/admin/drills": "Admin · Drills",
+  "/admin/coach": "Admin · AI Coach",
+  "/admin/health": "Admin · API Health",
+  "/admin/announcements": "Admin · Announcements",
 };
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -45,6 +54,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, firebaseUser, initialized, logout: doLogout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const NAV_ITEMS = useMemo(
+    () => (user?.is_admin === 1 ? [...BASE_NAV_ITEMS, ADMIN_NAV_ITEM] : BASE_NAV_ITEMS),
+    [user?.is_admin]
+  );
+
+  const pageLabelKey = pathname.startsWith("/admin/") ? pathname : pathname;
 
   useEffect(() => {
     if (initialized && !firebaseUser) {
@@ -70,7 +86,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     router.replace("/login");
   }
 
-  const pageLabel = PAGE_LABELS[pathname] || "CricEye AI";
+  const pageLabel = PAGE_LABELS[pageLabelKey] || PAGE_LABELS[pathname] || "CricEye AI";
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--bg-base)]">
@@ -138,6 +154,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main content area */}
       <main className="flex-1 flex flex-col overflow-y-auto relative z-1">
+        <AnnouncementBanner />
         {/* Header bar */}
         <header className="header-top">
           {/* Mobile menu button */}

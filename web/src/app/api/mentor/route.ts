@@ -1,28 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fallbackMentor } from "@/lib/mentor-fallback";
 import { classifyQuery, sanitizeReply, SAFE_REDIRECT } from "@/lib/mentor-guards";
-
-const SYSTEM_PROMPT = `You are CricEye AI Coach. You are ONLY a cricket TECHNIQUE coach — nothing else.
-
-ABSOLUTE RULES (breaking any of these is a failure):
-1. You are a COACH, not an encyclopedia. You coach technique, drills, and mindset.
-2. NEVER state specific statistics, scores, averages, strike rates, wicket counts, or records. Not even once. Not even approximations.
-3. NEVER name specific matches, tournaments, series, or dates. No "in the 2023 World Cup", no "last IPL", no "the Ashes 2019".
-4. NEVER invent quotes or claim any player said anything specific.
-5. NEVER list "top players" or rankings. You have no reliable data on current players.
-6. If asked about ANY factual cricket question (who, when, where, how many, which match, stats, records, results, rankings) — refuse with: "I'm a technique coach, not a stats bot. I can't quote specific numbers or results. But I can help you with [relevant coaching topic]. What are you working on?"
-7. Only discuss: batting technique, bowling technique, fielding technique, fitness, mental game, drills, practice routines.
-8. When mentioning pro players for inspiration (Kohli, Sachin, Dravid, etc.), ONLY describe their general STYLE or TECHNIQUE — never cite their stats.
-9. Keep answers SHORT — 2 to 3 short paragraphs max. Use bullet points for drills.
-10. If the question is not about cricket, respond: "I only help with cricket. What do you want to work on — batting, bowling, or fielding?"
-
-COACHING STYLE:
-- Encouraging, patient, direct.
-- Give ONE clear next action the player can try today.
-- Explain WHY a technique works, not just what to do.
-- Use cricket terms naturally (crease, off-stump, yorker) and briefly explain for beginners.
-
-REMEMBER: If you don't know something for certain, say so. It's better to give general technique advice than to invent facts. Inventing facts is the worst thing you can do.`;
+import { getMentorPrompt } from "@/lib/mentor-prompt";
 
 // OpenRouter free-tier models are heavily rate-limited and churn often, so we
 // keep a small priority chain. The first one that responds wins; on 429 / 5xx
@@ -64,6 +43,7 @@ function resolveModelChain(): string[] {
 async function callOpenRouterModel(
   apiKey: string,
   model: string,
+  systemPrompt: string,
   message: string,
   history: { role: string; content: string }[],
 ): Promise<{ reply: string | null; status: number }> {
@@ -79,7 +59,7 @@ async function callOpenRouterModel(
       body: JSON.stringify({
         model,
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           ...history.slice(-6),
           { role: "user", content: message },
         ],
@@ -103,12 +83,13 @@ async function callOpenRouterModel(
 
 async function callOpenRouter(
   apiKey: string,
+  systemPrompt: string,
   message: string,
   history: { role: string; content: string }[],
 ): Promise<{ reply: string | null; model: string | null }> {
   const chain = resolveModelChain();
   for (const model of chain) {
-    const { reply, status } = await callOpenRouterModel(apiKey, model, message, history);
+    const { reply, status } = await callOpenRouterModel(apiKey, model, systemPrompt, message, history);
     if (reply) return { reply, model };
     // Only walk the chain on rate-limit / server errors / network failures.
     // A 4xx other than 429 usually means the request is malformed, so stop.
@@ -118,6 +99,7 @@ async function callOpenRouter(
 }
 
 async function callOllama(
+  systemPrompt: string,
   message: string,
   history: { role: string; content: string }[],
 ): Promise<string | null> {
@@ -128,7 +110,7 @@ async function callOllama(
       body: JSON.stringify({
         model: "llama3.2",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           ...history.slice(-6),
           { role: "user", content: message },
         ],
@@ -164,11 +146,12 @@ export async function POST(req: NextRequest) {
     }
 
     const safeHistory = Array.isArray(history) ? history : [];
+    const systemPrompt = await getMentorPrompt();
 
     // --- Step 2: try OpenRouter (chain of models, rate-limit resilient) ---
     const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
     if (OPENROUTER_KEY) {
-      const { reply: raw, model } = await callOpenRouter(OPENROUTER_KEY, message, safeHistory);
+      const { reply: raw, model } = await callOpenRouter(OPENROUTER_KEY, systemPrompt, message, safeHistory);
       if (raw) {
         const { cleaned, wasSanitized } = sanitizeReply(raw);
         if (cleaned) {
@@ -183,7 +166,7 @@ export async function POST(req: NextRequest) {
     }
 
     // --- Step 3: try Ollama (local development) ---
-    const ollamaRaw = await callOllama(message, safeHistory);
+    const ollamaRaw = await callOllama(systemPrompt, message, safeHistory);
     if (ollamaRaw) {
       const { cleaned, wasSanitized } = sanitizeReply(ollamaRaw);
       if (cleaned) {

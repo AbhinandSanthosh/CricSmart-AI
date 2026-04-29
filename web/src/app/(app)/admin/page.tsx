@@ -1,172 +1,113 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Shield, Users } from "lucide-react";
-import { useAuth } from "@/store/auth";
+import Link from "next/link";
+import { Users, Dumbbell, MessageSquare, Activity, Megaphone, ArrowRight } from "lucide-react";
 import { auth } from "@/lib/firebase";
 
-interface AdminUser {
-  id: number;
-  username: string;
-  primary_role: string;
-  skill_level: string;
-  is_admin: number;
-  created_at: string;
+interface Stats {
+  total_users: number;
+  active_users: number;
+  admins: number;
+  drills: number;
+  banner_active: boolean;
+  services_up: number;
+  services_total: number;
 }
 
-export default function AdminPage() {
-  const { firebaseUser, initialized } = useAuth();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function AdminDashboardPage() {
+  const [stats, setStats] = useState<Stats | null>(null);
 
-  // Check admin status on mount
   useEffect(() => {
-    if (!initialized || !firebaseUser) return;
     let cancelled = false;
-
     (async () => {
       try {
         const token = await auth.currentUser?.getIdToken();
-        if (!token) { setIsAdmin(false); setLoading(false); return; }
+        if (!token) return;
+        const headers = { Authorization: `Bearer ${token}` };
+        const [usersRes, drillsRes, healthRes, annRes] = await Promise.all([
+          fetch("/api/admin/users", { headers }),
+          fetch("/api/admin/drills", { headers }),
+          fetch("/api/admin/health", { headers }),
+          fetch("/api/admin/announcements", { headers }),
+        ]);
+        const usersData = usersRes.ok ? await usersRes.json() : { users: [] };
+        const drillsData = drillsRes.ok ? await drillsRes.json() : { drills: [] };
+        const healthData = healthRes.ok ? await healthRes.json() : { services: [] };
+        const annData = annRes.ok ? await annRes.json() : { announcement: null };
 
-        const res = await fetch("/api/admin/check", {
-          headers: { Authorization: `Bearer ${token}` },
+        const users: { is_admin: number; deactivated_at: string | null }[] = usersData.users || [];
+        const services: { status: string }[] = healthData.services || [];
+        if (cancelled) return;
+        setStats({
+          total_users: users.length,
+          active_users: users.filter((u) => !u.deactivated_at).length,
+          admins: users.filter((u) => u.is_admin === 1 && !u.deactivated_at).length,
+          drills: (drillsData.drills || []).length,
+          banner_active: !!annData.announcement && annData.announcement.is_active === 1,
+          services_up: services.filter((s) => s.status === "ok").length,
+          services_total: services.length,
         });
-        const data = await res.json();
-        if (!cancelled) {
-          setIsAdmin(data.isAdmin === true);
-          if (!data.isAdmin) setLoading(false);
-        }
       } catch {
-        if (!cancelled) { setIsAdmin(false); setLoading(false); }
+        /* noop */
       }
     })();
-
-    return () => { cancelled = true; };
-  }, [initialized, firebaseUser]);
-
-  // Fetch users list once admin status is confirmed
-  useEffect(() => {
-    if (!isAdmin) return;
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const token = await auth.currentUser?.getIdToken();
-        if (!token) { setLoading(false); return; }
-
-        const r = await fetch("/api/users", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await r.json();
-        if (!cancelled) setUsers(data.users || []);
-      } catch { /* ignore */ } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [isAdmin]);
-
-  if (!initialized || isAdmin === null) {
-    return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-3 border-[var(--cs-accent)] border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm font-medium text-[var(--text-muted)]">Checking access...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
-        <div className="w-full max-w-[400px]">
-          <div className="text-center mb-8">
-            <Shield className="w-12 h-12 text-[var(--cs-accent)] mx-auto mb-4" />
-            <h1 className="text-4xl font-bold text-[var(--text-main)] tracking-tight">Access Denied</h1>
-            <p className="label-bracket mt-2">restricted_area</p>
-          </div>
-          <div className="panel p-8">
-            <div className="panel-header">
-              <span className="label-bracket">authorization</span>
-              <h2 className="panel-title">Unauthorized</h2>
-            </div>
-            <p className="text-sm text-[var(--text-muted)]">
-              You do not have admin privileges. Contact an administrator if you believe this is an error.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
-    <div className="grid grid-cols-12 gap-6">
-      <div className="col-span-12 py-5">
-        <p className="label-bracket mb-3 flex items-center gap-2">
-          <Shield className="w-3.5 h-3.5" /> admin_panel
-        </p>
-        <h1 className="text-4xl font-bold text-[var(--text-main)] tracking-tight">Admin Panel</h1>
-        <p className="text-[var(--text-muted)] text-base mt-2">Manage users and platform</p>
+    <div>
+      <div className="py-2 mb-6">
+        <h1 className="text-4xl font-bold text-[var(--text-main)] tracking-tight">Admin Dashboard</h1>
+        <p className="text-[var(--text-muted)] text-base mt-2">Manage users, content, and platform health</p>
       </div>
 
-      <div className="stats-strip col-span-12">
-        <div className="stat-box">
-          <div className="label-bracket"><Users className="w-3 h-3 inline align-middle mr-1" />total_users</div>
-          <div className="stat-val">{users.length}</div>
-        </div>
-        <div className="stat-box">
-          <div className="label-bracket"><Shield className="w-3 h-3 inline align-middle mr-1" />admin_count</div>
-          <div className="stat-val">{users.filter((u) => u.is_admin === 1).length}</div>
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+        <StatCard label="Total users" value={stats ? stats.total_users : "—"} sub={stats ? `${stats.active_users} active` : ""} />
+        <StatCard label="Admins" value={stats ? stats.admins : "—"} sub="active accounts" />
+        <StatCard label="Drills" value={stats ? stats.drills : "—"} sub="in library" />
+        <StatCard label="Services up" value={stats ? `${stats.services_up}/${stats.services_total}` : "—"} sub="external APIs" />
+        <StatCard label="Banner" value={stats ? (stats.banner_active ? "ON" : "OFF") : "—"} sub="platform-wide" />
       </div>
 
-      <div className="panel col-span-12">
-        <div className="panel-header">
-          <span className="label-bracket">user_database</span>
-          <h2 className="panel-title">All Users</h2>
-        </div>
-        {loading ? (
-          <div className="text-center py-10 text-[var(--text-muted)] text-[13px] font-bold tracking-wider">
-            Loading...
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-[13px] border-collapse">
-              <thead>
-                <tr className="border-b border-[var(--cs-border)]">
-                  {['ID', 'Username', 'Role', 'Skill', 'Joined', 'Admin'].map((h) => (
-                    <th key={h} className="pb-3 font-bold text-[10px] tracking-widest text-[var(--text-muted)] text-left uppercase">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id} className="border-b border-[var(--cs-border)]">
-                    <td className="py-3 text-[var(--text-muted)]">{u.id}</td>
-                    <td className="py-3 font-semibold text-[var(--text-main)]">{u.username}</td>
-                    <td className="py-3">
-                      <span className="label-bracket">{u.primary_role}</span>
-                    </td>
-                    <td className="py-3 text-[var(--text-muted)]">{u.skill_level}</td>
-                    <td className="py-3 text-[var(--text-muted)]">
-                      {u.created_at ? new Date(u.created_at).toLocaleDateString() : "\u2014"}
-                    </td>
-                    <td className="py-3">
-                      {u.is_admin === 1 ? (
-                        <span className="text-xs font-bold text-[var(--cs-accent)]">Admin</span>
-                      ) : "\u2014"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <QuickLink href="/admin/users" icon={Users} title="User Management" sub="Promote, demote, deactivate or delete accounts. Export to CSV." />
+        <QuickLink href="/admin/drills" icon={Dumbbell} title="Drill Management" sub="Add, edit, or remove Training Academy drills." />
+        <QuickLink href="/admin/coach" icon={MessageSquare} title="AI Coach Prompt" sub="Tune the system prompt that drives the coach." />
+        <QuickLink href="/admin/health" icon={Activity} title="API Health Monitor" sub="Live status for CricAPI, OpenRouter, and ML service." />
+        <QuickLink href="/admin/announcements" icon={Megaphone} title="Announcement Banner" sub="Set the platform-wide message shown to all users." />
       </div>
     </div>
+  );
+}
+
+function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+  return (
+    <div className="panel p-4">
+      <div className="label-bracket mb-1">{label}</div>
+      <div className="text-2xl font-bold text-[var(--text-main)]">{value}</div>
+      {sub && <div className="text-xs text-[var(--text-muted)] mt-1">{sub}</div>}
+    </div>
+  );
+}
+
+function QuickLink({ href, icon: Icon, title, sub }: { href: string; icon: React.ComponentType<{ className?: string }>; title: string; sub: string }) {
+  return (
+    <Link href={href} className="panel p-5 no-underline hover:border-[var(--cs-accent)] transition-colors">
+      <div className="flex items-start gap-4">
+        <div className="p-2 rounded-lg bg-[var(--cs-accent-light)] text-[var(--cs-accent)]">
+          <Icon className="w-5 h-5" />
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold text-[var(--text-main)]">{title}</h3>
+            <ArrowRight className="w-4 h-4 text-[var(--text-muted)]" />
+          </div>
+          <p className="text-sm text-[var(--text-muted)] mt-1">{sub}</p>
+        </div>
+      </div>
+    </Link>
   );
 }

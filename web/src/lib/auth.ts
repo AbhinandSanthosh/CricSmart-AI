@@ -12,6 +12,7 @@ export interface User {
   bowling_style: string;
   skill_level: string;
   is_admin: number;
+  deactivated_at: string | null;
   created_at: string;
 }
 
@@ -27,6 +28,7 @@ function rowToUser(row: Record<string, unknown>): User {
     bowling_style: (row.bowling_style as string) || "",
     skill_level: (row.skill_level as string) || "Beginner",
     is_admin: (row.is_admin as number) || 0,
+    deactivated_at: (row.deactivated_at as string) || null,
     created_at: (row.created_at as string) || "",
   };
 }
@@ -46,11 +48,27 @@ export async function verifyToken(authHeader: string | null) {
 
 /**
  * Get the user profile from the database by Firebase UID.
+ * Returns null if the user is deactivated — callers treat this as auth failure.
  */
 export async function getUserByUid(uid: string): Promise<User | null> {
   const db = await ensureDb();
   const result = await db.execute({
-    sql: "SELECT id, uid, username, email, phone, profile_photo, primary_role, bowling_style, skill_level, is_admin, created_at FROM users WHERE uid = ?",
+    sql: "SELECT id, uid, username, email, phone, profile_photo, primary_role, bowling_style, skill_level, is_admin, deactivated_at, created_at FROM users WHERE uid = ?",
+    args: [uid],
+  });
+  if (result.rows.length === 0) return null;
+  const user = rowToUser(result.rows[0] as unknown as Record<string, unknown>);
+  if (user.deactivated_at) return null;
+  return user;
+}
+
+/**
+ * Get a user even if deactivated. Used by admin tooling.
+ */
+export async function getUserByUidIncludingDeactivated(uid: string): Promise<User | null> {
+  const db = await ensureDb();
+  const result = await db.execute({
+    sql: "SELECT id, uid, username, email, phone, profile_photo, primary_role, bowling_style, skill_level, is_admin, deactivated_at, created_at FROM users WHERE uid = ?",
     args: [uid],
   });
   if (result.rows.length === 0) return null;
@@ -59,6 +77,7 @@ export async function getUserByUid(uid: string): Promise<User | null> {
 
 /**
  * Create a new user profile in the database for a Firebase user.
+ * Bootstraps admin if their email is in ADMIN_EMAILS.
  */
 export async function createUserProfile(
   uid: string,
@@ -71,21 +90,22 @@ export async function createUserProfile(
 ): Promise<User> {
   const db = await ensureDb();
 
-  // Check if profile already exists
   const existing = await db.execute({
     sql: "SELECT id FROM users WHERE uid = ?",
     args: [uid],
   });
   if (existing.rows.length > 0) {
-    return (await getUserByUid(uid))!;
+    return (await getUserByUidIncludingDeactivated(uid))!;
   }
 
+  const isBootstrapAdmin = getAdminEmails().includes(email.toLowerCase());
+
   await db.execute({
-    sql: "INSERT INTO users (uid, username, email, password, primary_role, skill_level, bowling_style, profile_photo) VALUES (?, ?, ?, '', ?, ?, ?, ?)",
-    args: [uid, username, email, role, skillLevel, bowlingStyle || "", photoUrl || ""],
+    sql: "INSERT INTO users (uid, username, email, password, primary_role, skill_level, bowling_style, profile_photo, is_admin) VALUES (?, ?, ?, '', ?, ?, ?, ?, ?)",
+    args: [uid, username, email, role, skillLevel, bowlingStyle || "", photoUrl || "", isBootstrapAdmin ? 1 : 0],
   });
 
-  return (await getUserByUid(uid))!;
+  return (await getUserByUidIncludingDeactivated(uid))!;
 }
 
 /**
@@ -100,38 +120,49 @@ function getAdminEmails(): string[] {
 }
 
 /**
- * Check if a Firebase user has admin access.
- * Admin access is granted if:
- * 1. The user's email is in the ADMIN_EMAILS env var, OR
- * 2. The user has the custom 'admin' claim set
+ * Check if a user has admin access.
  *
- * If email matches but claim isn't set yet, it will be set automatically
- * so subsequent checks are fast.
+ * DB-first: `users.is_admin` is the source of truth. ADMIN_EMAILS is a
+ * bootstrap mechanism only — if a matching email exists in users with
+ * is_admin=0, we promote them once. After that, admins can be promoted
+ * or demoted via the admin panel without conflict.
+ *
+ * Returns false for deactivated users.
  */
 export async function isAdmin(uid: string): Promise<boolean> {
   try {
-    const fbUser = await adminAuth.getUser(uid);
-    const email = fbUser.email?.toLowerCase() || "";
-    const adminEmails = getAdminEmails();
+    const db = await ensureDb();
 
-    // Check if email is in the allowlist
+    const result = await db.execute({
+      sql: "SELECT id, email, is_admin, deactivated_at FROM users WHERE uid = ?",
+      args: [uid],
+    });
+
+    if (result.rows.length === 0) return false;
+    const row = result.rows[0] as unknown as Record<string, unknown>;
+
+    if (row.deactivated_at) return false;
+
+    if ((row.is_admin as number) === 1) return true;
+
+    // Bootstrap: if email is in ADMIN_EMAILS, promote and return true.
+    const email = ((row.email as string) || "").toLowerCase();
+    const adminEmails = getAdminEmails();
     if (email && adminEmails.includes(email)) {
-      // Auto-grant the claim so future checks persist
-      if (fbUser.customClaims?.admin !== true) {
-        try {
-          await adminAuth.setCustomUserClaims(uid, {
-            ...(fbUser.customClaims || {}),
-            admin: true,
-          });
-        } catch {
-          /* claim setting is best-effort */
-        }
+      await db.execute({
+        sql: "UPDATE users SET is_admin = 1 WHERE id = ?",
+        args: [row.id as number],
+      });
+      // Best-effort: keep the Firebase claim aligned for downstream consumers.
+      try {
+        await adminAuth.setCustomUserClaims(uid, { admin: true });
+      } catch {
+        /* noop */
       }
       return true;
     }
 
-    // Fallback to existing custom claim
-    return fbUser.customClaims?.admin === true;
+    return false;
   } catch {
     return false;
   }
