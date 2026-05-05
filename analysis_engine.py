@@ -191,33 +191,30 @@ class BallTracker:
         return (int(pred[0]), int(pred[1]))
 
 
-def classify_shot_relative(bounce_point, ground_y):
-    """Classifies delivery length based on where the ball bounces relative to ground."""
-    if not bounce_point:
-        return "Unknown"
+def analyze_ball_tracking(video_path, roi_box, track_ball, advanced, fps,
+                          pitch_corners_px=None):
+    """Full pipeline: detect ball, track, project to 3D pitch frame, predict impact.
 
-    bx, by = bounce_point
-    dist_from_ground = ground_y - by
+    pitch_corners_px: list of 4 [x, y] pixel coords in the order
+        [BL, BR, TR, TL] = bowler-end-leg, bowler-end-off,
+                           batter-end-off, batter-end-leg.
+        If None, falls back to a degraded mode that flags the result.
+    """
+    from utils.physics_utils import (
+        compute_pitch_homography, pixel_to_pitch_coords,
+        predict_stump_impact, describe_bounce, calculate_speed as calc_speed_v2,
+    )
 
-    if dist_from_ground < 40:
-        return "Yorker"
-    elif 40 <= dist_from_ground < 120:
-        return "Full Length"
-    elif 120 <= dist_from_ground < 250:
-        return "Good Length"
-    else:
-        return "Short Ball"
-
-
-def analyze_ball_tracking(video_path, roi_box, track_ball, advanced, fps):
-    """Full pipeline: detect ball, track, calculate speed, classify shot."""
     cap = cv2.VideoCapture(video_path)
     ret, first_frame = cap.read()
     if not ret:
         return None
 
-    # 1. DYNAMIC CALIBRATION
+    # 1. CALIBRATION
     pixels_per_meter, ground_y = get_calibration_scale(first_frame, roi_box)
+    H = None
+    if pitch_corners_px is not None and len(pitch_corners_px) == 4:
+        H = compute_pitch_homography(pitch_corners_px)
 
     tracker = BallTracker()
     ball_trail = []
@@ -230,7 +227,6 @@ def analyze_ball_tracking(video_path, roi_box, track_ball, advanced, fps):
 
         ball_pos, bat_pos = process_cricket_frame(frame, roi_box)
 
-        # 2. CENTROID DISTANCE FILTER
         if ball_pos:
             if len(ball_trail) > 0:
                 dist = np.linalg.norm(np.array(ball_pos) - np.array(ball_trail[-1]))
@@ -249,25 +245,50 @@ def analyze_ball_tracking(video_path, roi_box, track_ball, advanced, fps):
     cap.release()
 
     if len(ball_trail) < 5:
-        return ball_trail, None, None, None, {"shot_type": "No Ball Detected"}
+        return ball_trail, None, None, None, {
+            "verdict": "Could not see the ball clearly. Try a brighter, side-on video.",
+            "speed_kmh": 0.0,
+            "hit_stumps": False,
+            "bounce_text": "",
+        }
 
-    # 3. BOUNCE & SPEED
-    bounce_point = min(ball_trail, key=lambda p: p[1])
+    # 2. PROJECT TO 3D PITCH FRAME
+    pitch_trail = []
+    if H is not None:
+        for (u, v) in ball_trail:
+            X_m, Z_m = pixel_to_pitch_coords((u, v), H)
+            Y_m = max(0.0, (ground_y - v) * pixels_per_meter)
+            pitch_trail.append((X_m, Y_m, Z_m))
 
+    # 3. SPEED
     speed_kmh = calculate_speed(ball_trail, pixels_per_meter, fps)
 
-    # 4. STUMP HIT LOGIC
-    ball_hit_stumps = False
-    if ball_trail:
-        last_x = ball_trail[-1][0]
-        if 450 < last_x < 550:
-            ball_hit_stumps = True
+    # 4. IMPACT + BOUNCE DESCRIPTION (3D frame)
+    if pitch_trail and len(pitch_trail) >= 4:
+        impact = predict_stump_impact(pitch_trail)
+        hit_stumps = bool(impact.get("hit_stumps", False))
+        bounce_text = describe_bounce(
+            impact.get("bounce_X_m", 0.0),
+            impact.get("bounce_Z_m", 0.0),
+        ) if "bounce_X_m" in impact else ""
+    else:
+        hit_stumps = False
+        bounce_text = "Pitch corners not provided — couldn't read where the ball pitched."
+
+    verdict = (
+        "It would have hit the stumps."
+        if hit_stumps else
+        "It would have missed the stumps."
+    )
+
+    bounce_point_px = min(ball_trail, key=lambda p: p[1])
 
     stats = {
-        'ball_trail_length': len(ball_trail),
-        'speed_kmh': round(speed_kmh, 2),
-        'shot_type': classify_shot_relative(bounce_point, ground_y),
-        'hit_stumps': ball_hit_stumps
+        "ball_trail_length": len(ball_trail),
+        "speed_kmh": round(speed_kmh, 1),
+        "hit_stumps": hit_stumps,
+        "verdict": verdict,
+        "bounce_text": bounce_text,
     }
 
-    return ball_trail, bounce_point, None, None, stats
+    return ball_trail, bounce_point_px, None, None, stats

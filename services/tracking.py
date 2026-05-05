@@ -1,5 +1,4 @@
 import streamlit as st
-import cv2
 import tempfile
 
 
@@ -83,62 +82,21 @@ def ball_tracking_page():
                     st.error(f"Analysis failed: {e}")
                     return
 
-                st.subheader("📊 Analysis Results")
+                st.subheader("Result")
 
                 if not ball_trail:
-                    st.error("❌ No ball detected. Try clearer video.")
+                    st.error("Couldn't see the ball clearly. Try a brighter side-on video.")
                     return
 
-                col1, col2 = st.columns(2)
+                speed = stats.get('speed_kmh', 0)
+                st.metric("Speed", f"{speed:.0f} km/h")
 
-                with col1:
-                    speed = stats.get('speed_kmh', 0)
-                    st.metric("⚡ Ball Speed", f"{speed:.2f} km/h")
+                verdict = stats.get('verdict', '')
+                if stats.get('hit_stumps'):
+                    st.error(verdict)
+                else:
+                    st.success(verdict)
 
-                    if stats.get('hit_stumps'):
-                        st.error("🟥 Ball would hit the stumps")
-                    else:
-                        st.success("🏏 Ball is missing the stumps")
-
-                with col2:
-                    shot = stats.get('shot_type', "Unknown")
-                    st.success(f"AI Recommendation: {shot}")
-
-                # 🎥 VISUAL OUTPUT
-                st.subheader("🎥 Visual Output")
-
-                cap = cv2.VideoCapture(final_video_path)
-
-                output_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
-                output_path = output_file.name
-
-                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-                out = None
-                frame_idx = 0
-
-                while cap.isOpened():
-                    ret, frame = cap.read()
-                    if not ret:
-                        break
-
-                    if out is None:
-                        h, w, _ = frame.shape
-                        out = cv2.VideoWriter(output_path, fourcc, 30, (w, h))
-
-                    for j in range(1, min(len(ball_trail), frame_idx)):
-                        cv2.line(frame, ball_trail[j-1], ball_trail[j], (0, 255, 0), 3)
-
-                    if bounce_point and frame_idx >= stats.get('bounce_index', 0):
-                        cv2.circle(frame, bounce_point, 10, (255, 0, 0), -1)
-
-                    out.write(frame)
-                    frame_idx += 1
-
-                cap.release()
-                if out:
-                    out.release()
-
-                st.video(output_path)
-
-                with st.expander("📦 View Debug Stats"):
-                    st.json(stats)
+                bounce_text = stats.get('bounce_text', '')
+                if bounce_text:
+                    st.info(bounce_text)
