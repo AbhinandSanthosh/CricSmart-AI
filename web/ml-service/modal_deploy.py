@@ -201,14 +201,6 @@ def serve():
 
         return float(max(40.0, min(170.0, result)))
 
-    def classify_shot(bounce_point, ground_y):
-        if not bounce_point:
-            return "Unknown"
-        dist = ground_y - bounce_point[1]
-        if dist < 40: return "Yorker"
-        elif dist < 120: return "Full Length"
-        elif dist < 250: return "Good Length"
-        else: return "Short Ball"
 
     # --- Routes ---
     @api.get("/health")
@@ -222,12 +214,98 @@ def serve():
             return FileResponse(str(path), media_type="video/mp4")
         return {"error": "not found"}
 
+    # --- Plain-pitch-frame helpers (mirror utils/physics_utils.py) ---
+    PITCH_LENGTH_M = 20.12
+    PITCH_HALF_W_M = 1.525
+    STUMP_HALF_W_M = 0.11
+    STUMP_HEIGHT_M = 0.711
+
+    def compute_pitch_homography(corners_px):
+        src = np.float32(corners_px)
+        dst = np.float32([[-PITCH_HALF_W_M, 0.0],
+                          [ PITCH_HALF_W_M, 0.0],
+                          [ PITCH_HALF_W_M, PITCH_LENGTH_M],
+                          [-PITCH_HALF_W_M, PITCH_LENGTH_M]])
+        return cv2.getPerspectiveTransform(src, dst)
+
+    def pixel_to_pitch_coords(uv, H):
+        u, v = float(uv[0]), float(uv[1])
+        p = np.array([u, v, 1.0])
+        q = H @ p
+        return (q[0] / q[2], q[1] / q[2])
+
+    def predict_stump_impact(pitch_trail):
+        pts = np.asarray(pitch_trail, dtype=float)
+        if len(pts) < 4:
+            return {"hit_stumps": False, "reason": "not_enough_points"}
+        X, Y, Z = pts[:, 0], pts[:, 1], pts[:, 2]
+        bounce_idx = int(np.argmin(Y))
+        post_start = bounce_idx
+        if (len(pts) - post_start) < 3:
+            post_start = max(0, len(pts) - 5)
+        Z_post = Z[post_start:]
+        if len(np.unique(Z_post)) < 3:
+            return {"hit_stumps": False, "reason": "insufficient_post_bounce_data"}
+        cy = np.polyfit(Z_post, Y[post_start:], 2)
+        cx = np.polyfit(Z_post, X[post_start:], 1)
+        X_stump = float(np.polyval(cx, PITCH_LENGTH_M))
+        Y_stump = float(np.polyval(cy, PITCH_LENGTH_M))
+        return {
+            "hit_stumps": bool(abs(X_stump) <= STUMP_HALF_W_M and 0.0 <= Y_stump <= STUMP_HEIGHT_M),
+            "X_stump_m": X_stump,
+            "Y_stump_m": Y_stump,
+            "bounce_X_m": float(X[bounce_idx]),
+            "bounce_Z_m": float(Z[bounce_idx]),
+        }
+
+    def describe_bounce(bounce_X_m, bounce_Z_m):
+        d = PITCH_LENGTH_M - bounce_Z_m
+        length = ("yorker length" if d < 2.0 else
+                  "full length" if d < 4.0 else
+                  "good length" if d < 7.0 else
+                  "short of a length")
+        if abs(bounce_X_m) <= STUMP_HALF_W_M:
+            line = "in line with the stumps"
+        elif bounce_X_m < -STUMP_HALF_W_M:
+            line = "outside off stump"
+        else:
+            line = "outside leg stump"
+        return f"Pitched on a {length}, {line}."
+
+    def smooth_trail(points, num_output=120):
+        if len(points) < 2:
+            return [list(p) for p in points]
+        pts = np.array(points, dtype=float)
+        diffs = np.diff(pts, axis=0)
+        seg = np.sqrt((diffs ** 2).sum(axis=1))
+        cum = np.concatenate([[0], np.cumsum(seg)])
+        if cum[-1] == 0:
+            return [list(p) for p in points]
+        t = cum / cum[-1]
+        n = min(num_output, max(2, len(points)))
+        t_new = np.linspace(0, 1, n)
+        x_smooth = np.interp(t_new, t, pts[:, 0])
+        y_smooth = np.interp(t_new, t, pts[:, 1])
+        return [[int(x), int(y)] for x, y in zip(x_smooth, y_smooth)]
+
     @api.post("/analyze")
     async def analyze_video(
         video: UploadFile = File(...),
         trim_start: float = Form(0.0),
         trim_end: float = Form(0.0),
+        pitch_corners: str = Form(""),
     ):
+        import json as _json
+
+        parsed_corners = None
+        if pitch_corners:
+            try:
+                parsed = _json.loads(pitch_corners)
+                if isinstance(parsed, list) and len(parsed) == 4:
+                    parsed_corners = [[float(p[0]), float(p[1])] for p in parsed]
+            except Exception:
+                parsed_corners = None
+
         suffix = Path(video.filename or "video.mp4").suffix
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
             content = await video.read()
@@ -254,7 +332,13 @@ def serve():
 
             cap = cv2.VideoCapture(analysis_path)
             if not cap.isOpened():
-                return {"error": "Could not open video"}
+                return {
+                    "speed_kmh": 0,
+                    "hit_stumps": False,
+                    "verdict": "Couldn't read the video.",
+                    "bounce_text": "",
+                    "trail_overlay_px": [],
+                }
 
             fps = cap.get(cv2.CAP_PROP_FPS) or 30
             frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -312,10 +396,11 @@ def serve():
 
             if len(raw_detections) < 3:
                 return {
-                    "speed_kmh": 0, "shot_type": "Unknown",
-                    "bounce_point": "No ball detected — try a clearer video",
-                    "hit_stumps": False, "confidence": 0,
-                    "stumps_detected": stump_detected,
+                    "speed_kmh": 0,
+                    "hit_stumps": False,
+                    "verdict": "Couldn't see the ball clearly. Try a brighter side-on video.",
+                    "bounce_text": "",
+                    "trail_overlay_px": [],
                 }
 
             # Find delivery sequence
@@ -363,38 +448,39 @@ def serve():
 
             # Speed calculation uses RAW positions (pre-Kalman) for accuracy
             speed = calculate_speed(raw_trail_frames, meters_per_pixel, fps)
-            shot_type = classify_shot(ball_trail[bounce_idx], ground_y)
 
-            stump_margin = int(frame_w * 0.06)
-            last_x = ball_trail[-1][0]
-            hit_stumps = abs(last_x - stump_center_x) < stump_margin
+            # 3D pitch projection (only if user provided 4 corners)
+            if parsed_corners is not None:
+                H = compute_pitch_homography(parsed_corners)
+                pitch_trail = []
+                for (u, v) in ball_trail:
+                    X_m, Z_m = pixel_to_pitch_coords((u, v), H)
+                    Y_m = max(0.0, (ground_y - v) * meters_per_pixel)
+                    pitch_trail.append((X_m, Y_m, Z_m))
+                impact = predict_stump_impact(pitch_trail)
+                hit_stumps = bool(impact.get("hit_stumps", False))
+                bounce_text = (
+                    describe_bounce(impact.get("bounce_X_m", 0.0),
+                                    impact.get("bounce_Z_m", 0.0))
+                    if "bounce_X_m" in impact else
+                    "Couldn't read where the ball pitched."
+                )
+            else:
+                hit_stumps = False
+                bounce_text = "Tap the 4 pitch corners on the first frame for an accurate read."
 
-            confidence = min(95, len(ball_trail) * 3 + 20)
-            if stump_detected: confidence = min(98, confidence + 10)
-
-            # Full smoothed trajectory for frontend visualization.
-            # Coordinates are in pixel-space of the original video frame.
-            trajectory = [[int(p[0]), int(p[1])] for p in ball_trail]
+            verdict = (
+                "It would have hit the stumps."
+                if hit_stumps else
+                "It would have missed the stumps."
+            )
 
             return {
                 "speed_kmh": round(speed, 1),
-                "shot_type": shot_type,
-                "bounce_point": f"~{abs(ground_y - ball_trail[bounce_idx][1]) * meters_per_pixel:.1f}m from stumps",
                 "hit_stumps": hit_stumps,
-                "confidence": confidence,
-                "stumps_detected": stump_detected,
-                "ball_detections": len(raw_detections),
-                "stump_detections": len(stump_detections),
-                "delivery_points": len(ball_trail),
-                "release_point": list(ball_trail[0]),
-                "pitch_point": list(ball_trail[bounce_idx]),
-                "impact_point": list(ball_trail[-1]),
-                "bounce_index": bounce_idx,
-                "trajectory": trajectory,
-                "video_width": frame_w,
-                "video_height": frame_h,
-                "stump_center_x": stump_center_x,
-                "ground_y": ground_y,
+                "verdict": verdict,
+                "bounce_text": bounce_text,
+                "trail_overlay_px": smooth_trail(ball_trail, num_output=120),
             }
         finally:
             os.unlink(tmp_path)
