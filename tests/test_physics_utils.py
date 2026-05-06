@@ -13,6 +13,9 @@ from utils.physics_utils import (
     pixel_to_pitch_coords,
     predict_stump_impact,
     describe_bounce,
+    auto_detect_pitch_corners,
+    fallback_hit_stumps,
+    fallback_bounce_text,
     PITCH_LENGTH_M,
     PITCH_HALF_W_M,
     STUMP_HALF_W_M,
@@ -115,10 +118,73 @@ def test_describe_bounce_strings():
     print(f"  -> {s_yorker_leg}")
 
 
+def test_auto_detect_pitch_corners():
+    """With a single confident stump detection, auto-detect produces 4
+    sensibly-ordered pixel corners that round-trip through the homography
+    near the expected pitch-frame anchors."""
+    # Synthetic stump bbox: 32 px wide, 90 px tall, centered at (960, 980)
+    # in a 1920×1080 frame.
+    stump_dets = [(0, 944, 890, 976, 980, 0.92)]
+    corners = auto_detect_pitch_corners(stump_dets, 1920, 1080)
+    assert corners is not None
+    assert len(corners) == 4
+    BL, BR, TR, TL = corners
+    # Order sanity: bowler-end pair has smaller y; batter-end has larger y
+    assert BL[1] < TL[1] and BR[1] < TR[1]
+    # Bowler end is narrower (perspective compression)
+    assert (BR[0] - BL[0]) < (TR[0] - TL[0])
+    # Batter-end pair sits at stump-bottom y (= 980)
+    assert abs(TL[1] - 980) < 1 and abs(TR[1] - 980) < 1
+
+    # Round-trip the 4 detected corners through the homography
+    H = compute_pitch_homography(corners)
+    expected = [
+        (-PITCH_HALF_W_M, 0.0),
+        ( PITCH_HALF_W_M, 0.0),
+        ( PITCH_HALF_W_M, PITCH_LENGTH_M),
+        (-PITCH_HALF_W_M, PITCH_LENGTH_M),
+    ]
+    for px, (X_exp, Z_exp) in zip(corners, expected):
+        X, Z = pixel_to_pitch_coords(px, H)
+        assert abs(X - X_exp) < 0.01
+        assert abs(Z - Z_exp) < 0.01
+    print("auto_detect_pitch_corners: OK")
+
+
+def test_auto_detect_returns_none_without_stumps():
+    assert auto_detect_pitch_corners([], 1920, 1080) is None
+    print("auto_detect_pitch_corners empty input: OK")
+
+
+def test_fallback_hit_stumps():
+    # stump_center_x = 960, stump bbox y1=890, y2=980, ~50 m/px would be silly,
+    # use mpp = 0.711 / 90 = 0.0079 m/px.
+    mpp = 0.711 / 90
+    # Last ball position close to stumps and within stump height -> HIT
+    assert fallback_hit_stumps(965, 950, 960, 890, 980, mpp) is True
+    # Last ball position 0.5 m to the side -> MISS
+    far_x = 960 + int(0.5 / mpp)
+    assert fallback_hit_stumps(far_x, 950, 960, 890, 980, mpp) is False
+    # Last ball above stumps -> MISS (height fail)
+    assert fallback_hit_stumps(965, 700, 960, 890, 980, mpp) is False
+    print("fallback_hit_stumps: OK")
+
+
+def test_fallback_bounce_text():
+    mpp = 0.711 / 90
+    text = fallback_bounce_text(960, 700, 960, 980, mpp)  # ~2.21m from stumps, in line
+    assert "in line with the stumps" in text
+    print(f"fallback_bounce_text: OK -> {text}")
+
+
 if __name__ == "__main__":
     test_homography_round_trip()
     test_impact_hit()
     test_impact_lateral_miss()
     test_impact_height_miss()
     test_describe_bounce_strings()
+    test_auto_detect_pitch_corners()
+    test_auto_detect_returns_none_without_stumps()
+    test_fallback_hit_stumps()
+    test_fallback_bounce_text()
     print("\nAll tests passed.")
