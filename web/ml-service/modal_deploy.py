@@ -53,15 +53,17 @@ def serve():
     import uuid
     from pathlib import Path
 
-    from fastapi import FastAPI, UploadFile, File, Form
+    from fastapi import FastAPI, UploadFile, File, Form, Request
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
 
     # --- Setup ---
     OUTPUT_DIR = Path(tempfile.gettempdir()) / "cricsmart_outputs"
     OUTPUT_DIR.mkdir(exist_ok=True)
 
     api = FastAPI(title="CricSmart Ball Tracking (Modal)")
+    api.mount("/outputs", StaticFiles(directory=str(OUTPUT_DIR)), name="outputs")
 
     api.add_middleware(
         CORSMiddleware,
@@ -320,8 +322,75 @@ def serve():
         y_smooth = np.interp(t_new, t, pts[:, 1])
         return [[int(x), int(y)] for x, y in zip(x_smooth, y_smooth)]
 
+    def render_trail_only_video(video_path, ball_trail, hit_stumps,
+                                ball_trail_frames=None):
+        """Re-render the input video with one growing semi-transparent trail
+        curve. No HUD, no labels, no freeze frame."""
+        if not ball_trail or len(ball_trail) < 2:
+            return None
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            return None
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30
+        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
+        raw = str(OUTPUT_DIR / f"{uuid.uuid4().hex}_raw.mp4")
+        out = cv2.VideoWriter(raw, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+        if not out.isOpened():
+            cap.release()
+            return None
+        smooth_pts = smooth_trail(list(ball_trail), num_output=200)
+        col = (75, 42, 255) if hit_stumps else (94, 197, 34)
+        glow = (40, 20, 200) if hit_stumps else (50, 130, 20)
+        scale = max(w, h) / 800.0
+        lt = max(2, int(3 * scale))
+        gt = lt + 4
+        if ball_trail_frames and len(ball_trail_frames) == len(ball_trail):
+            def progress(f_idx):
+                seen = sum(1 for fi in ball_trail_frames if fi <= f_idx)
+                return seen / max(len(ball_trail), 1)
+        else:
+            def progress(f_idx):
+                return min(1.0, (f_idx + 1) / max(total_frames * 0.85, 1))
+        f_idx = 0
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            n_pts = max(2, int(len(smooth_pts) * progress(f_idx)))
+            if n_pts >= 2:
+                visible = smooth_pts[:n_pts]
+                for j in range(1, len(visible)):
+                    cv2.line(frame, tuple(visible[j-1]), tuple(visible[j]), glow, gt, cv2.LINE_AA)
+                for j in range(1, len(visible)):
+                    cv2.line(frame, tuple(visible[j-1]), tuple(visible[j]), col, lt, cv2.LINE_AA)
+                cv2.circle(frame, tuple(visible[-1]), max(4, int(5*scale)), (255,255,255), -1, cv2.LINE_AA)
+            out.write(frame)
+            f_idx += 1
+        cap.release()
+        out.release()
+        h264 = f"{uuid.uuid4().hex}.mp4"
+        h264p = str(OUTPUT_DIR / h264)
+        try:
+            r = subprocess.run(
+                ["ffmpeg", "-y", "-i", raw, "-c:v", "libx264", "-preset", "fast",
+                 "-crf", "23", "-pix_fmt", "yuv420p", "-movflags", "+faststart", h264p],
+                capture_output=True, timeout=120,
+            )
+            if r.returncode == 0 and os.path.exists(h264p) and os.path.getsize(h264p) > 0:
+                try:
+                    os.unlink(raw)
+                except Exception:
+                    pass
+                return h264
+        except Exception:
+            pass
+        return Path(raw).name
+
     @api.post("/analyze")
     async def analyze_video(
+        request: Request,
         video: UploadFile = File(...),
         trim_start: float = Form(0.0),
         trim_end: float = Form(0.0),
@@ -378,7 +447,7 @@ def serve():
             frame_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
             # Detect balls and stumps
-            max_frames = min(frame_count, 300)
+            max_frames = min(frame_count, 600)
             raw_detections = []
             stump_detections = []
             ball_cls = 0
@@ -391,7 +460,7 @@ def serve():
             for i in range(max_frames):
                 ret, frame = cap.read()
                 if not ret: break
-                results = yolo_model.predict(frame, conf=0.15, iou=0.3, verbose=False)[0]
+                results = yolo_model.predict(frame, conf=0.10, iou=0.3, verbose=False)[0]
                 if results.boxes:
                     for box in results.boxes:
                         cls_id = int(box.cls[0])
@@ -525,13 +594,30 @@ def serve():
                 "It would have missed the stumps."
             )
 
-            return {
+            # Render trail-only overlay video (best-effort)
+            output_video_filename = None
+            try:
+                trail_frame_indices = [tf[0] for tf in ball_trail_frames]
+                output_video_filename = render_trail_only_video(
+                    analysis_path, ball_trail, hit_stumps,
+                    ball_trail_frames=trail_frame_indices,
+                )
+            except Exception as e:
+                print(f"  trail render failed: {e}")
+
+            response = {
                 "speed_kmh": round(speed, 1),
                 "hit_stumps": hit_stumps,
                 "verdict": verdict,
                 "bounce_text": bounce_text,
                 "trail_overlay_px": smooth_trail(ball_trail, num_output=120),
             }
+            if output_video_filename:
+                base = os.environ.get("ML_SERVICE_BASE_URL")
+                if not base:
+                    base = str(request.base_url).rstrip("/")
+                response["output_video_url"] = f"{base}/outputs/{output_video_filename}"
+            return response
         finally:
             os.unlink(tmp_path)
 
