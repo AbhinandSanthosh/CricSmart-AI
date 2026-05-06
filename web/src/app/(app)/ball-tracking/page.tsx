@@ -11,15 +11,6 @@ interface TrackingResult {
   trailOverlayPx: [number, number][];
 }
 
-type Corner = [number, number];
-
-const CORNER_LABELS = [
-  "Bowler end — leg side",
-  "Bowler end — off side",
-  "Batter end — off side",
-  "Batter end — leg side",
-];
-
 function formatTime(s: number) {
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
@@ -48,12 +39,9 @@ export default function BallTrackingPage() {
   const [dragging, setDragging] = useState<"start" | "end" | null>(null);
   const trackRef = useRef<HTMLDivElement>(null);
 
-  // Calibration state — user clicks 4 pitch corners on the first frame
-  const [corners, setCorners] = useState<Corner[]>([]);
-  const [calibrating, setCalibrating] = useState(false);
+  // First-frame thumbnail used as the trail backdrop (auto-captured on upload)
   const [firstFrameUrl, setFirstFrameUrl] = useState<string | null>(null);
   const [frameSize, setFrameSize] = useState<{ w: number; h: number } | null>(null);
-  const calibCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // Live capture state
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
@@ -99,69 +87,37 @@ export default function BallTrackingPage() {
     };
   }, [videoUrl]);
 
-  // Draw the calibration overlay (first frame + clicked corners + connecting polygon)
-  useEffect(() => {
-    if (!calibrating || !firstFrameUrl || !frameSize) return;
-    const canvas = calibCanvasRef.current;
-    if (!canvas) return;
-    const img = new Image();
-    img.onload = () => {
-      canvas.width = frameSize.w;
-      canvas.height = frameSize.h;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.drawImage(img, 0, 0, frameSize.w, frameSize.h);
-
-      const scale = Math.max(frameSize.w, frameSize.h) / 800;
-      ctx.lineWidth = 3 * scale;
-      ctx.strokeStyle = "rgba(0, 212, 255, 0.9)";
-      ctx.fillStyle = "rgba(0, 212, 255, 0.18)";
-
-      if (corners.length >= 2) {
-        ctx.beginPath();
-        ctx.moveTo(corners[0][0], corners[0][1]);
-        for (let i = 1; i < corners.length; i++) ctx.lineTo(corners[i][0], corners[i][1]);
-        if (corners.length === 4) ctx.closePath();
-        ctx.stroke();
-        if (corners.length === 4) ctx.fill();
-      }
-
-      corners.forEach((pt, i) => {
-        ctx.fillStyle = "#00d4ff";
-        ctx.beginPath();
-        ctx.arc(pt[0], pt[1], 8 * scale, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.font = `bold ${14 * scale}px sans-serif`;
-        ctx.fillStyle = "rgba(0,0,0,0.8)";
-        const lbl = String(i + 1);
-        const tw = ctx.measureText(lbl).width;
-        ctx.fillRect(pt[0] + 12 * scale, pt[1] - 14 * scale, tw + 8 * scale, 18 * scale);
-        ctx.fillStyle = "#00d4ff";
-        ctx.fillText(lbl, pt[0] + 16 * scale, pt[1]);
-      });
-    };
-    img.src = firstFrameUrl;
-  }, [calibrating, firstFrameUrl, frameSize, corners]);
-
-  // Draw the result trail (single semi-transparent curve over first-frame thumbnail)
+  // Draw the result trail. Paints the first-frame thumbnail as backdrop when
+  // available, otherwise paints solid black so the trail is always visible.
   useEffect(() => {
     if (!result?.trailOverlayPx || result.trailOverlayPx.length < 2) return;
-    if (!firstFrameUrl || !frameSize) return;
     const canvas = trajectoryCanvasRef.current;
     if (!canvas) return;
-    const img = new Image();
-    img.onload = () => {
-      canvas.width = frameSize.w;
-      canvas.height = frameSize.h;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.drawImage(img, 0, 0, frameSize.w, frameSize.h);
 
-      const trail = result.trailOverlayPx;
-      const scale = Math.max(frameSize.w, frameSize.h) / 800;
+    const trail = result.trailOverlayPx;
+    // Derive canvas size: prefer captured frame size; otherwise bound by trail extent
+    let w: number;
+    let h: number;
+    if (frameSize) {
+      w = frameSize.w;
+      h = frameSize.h;
+    } else {
+      const xs = trail.map((p) => p[0]);
+      const ys = trail.map((p) => p[1]);
+      w = Math.max(...xs) + 80;
+      h = Math.max(...ys) + 80;
+    }
+
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const paintTrail = () => {
+      const scale = Math.max(w, h) / 800;
       ctx.strokeStyle = result.hitStumps
-        ? "rgba(255, 42, 75, 0.75)"
-        : "rgba(34, 197, 94, 0.75)";
+        ? "rgba(255, 42, 75, 0.85)"
+        : "rgba(34, 197, 94, 0.85)";
       ctx.lineWidth = 4 * scale;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
@@ -170,27 +126,25 @@ export default function BallTrackingPage() {
       for (let i = 1; i < trail.length; i++) ctx.lineTo(trail[i][0], trail[i][1]);
       ctx.stroke();
     };
-    img.src = firstFrameUrl;
+
+    if (firstFrameUrl) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, w, h);
+        paintTrail();
+      };
+      img.onerror = () => {
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, w, h);
+        paintTrail();
+      };
+      img.src = firstFrameUrl;
+    } else {
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, w, h);
+      paintTrail();
+    }
   }, [result, firstFrameUrl, frameSize]);
-
-  function handleCalibClick(e: React.MouseEvent<HTMLCanvasElement>) {
-    if (!frameSize) return;
-    if (corners.length >= 4) return;
-    const canvas = calibCanvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * frameSize.w;
-    const y = ((e.clientY - rect.top) / rect.height) * frameSize.h;
-    setCorners([...corners, [x, y]]);
-  }
-
-  function undoLastCorner() {
-    setCorners(corners.slice(0, -1));
-  }
-
-  function clearCorners() {
-    setCorners([]);
-  }
 
   function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -328,11 +282,6 @@ export default function BallTrackingPage() {
 
   async function analyzeVideo() {
     if (!videoUrl) return;
-    if (corners.length !== 4) {
-      setError("Tap the 4 pitch corners on the first frame before analyzing.");
-      setCalibrating(true);
-      return;
-    }
     setAnalyzing(true);
     setError("");
     setProgress(0);
@@ -353,7 +302,6 @@ export default function BallTrackingPage() {
           formData.append("trim_start", trimStart.toFixed(2));
           formData.append("trim_end", trimEnd.toFixed(2));
         }
-        formData.append("pitch_corners", JSON.stringify(corners));
         try {
           const res = await fetch(ML_SERVICE_URL, { method: "POST", body: formData, signal: AbortSignal.timeout(120000) });
           if (res.ok) {
@@ -400,8 +348,6 @@ export default function BallTrackingPage() {
     setTrimStart(0);
     setTrimEnd(0);
     setDuration(0);
-    setCorners([]);
-    setCalibrating(false);
     setFirstFrameUrl(null);
     setFrameSize(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -575,55 +521,6 @@ export default function BallTrackingPage() {
               </div>
             )}
 
-            {/* Calibration step */}
-            {firstFrameUrl && !result && (
-              <div className="mt-5 bg-[var(--bg-surface)] rounded-xl p-4 border border-[var(--cs-border)]">
-                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--text-main)]">
-                      {corners.length === 4
-                        ? "Pitch corners set."
-                        : `Tap the 4 pitch corners (${corners.length}/4)`}
-                    </p>
-                    {corners.length < 4 && (
-                      <p className="text-xs text-[var(--text-muted)] mt-1">
-                        Next: <span className="text-[var(--cs-accent)] font-semibold">{CORNER_LABELS[corners.length]}</span>
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    {!calibrating && corners.length === 0 && (
-                      <button onClick={() => setCalibrating(true)} className="btn btn-secondary px-4 py-1.5 text-xs">
-                        Set pitch corners
-                      </button>
-                    )}
-                    {calibrating && corners.length > 0 && (
-                      <button onClick={undoLastCorner} className="btn btn-secondary px-3 py-1 text-[11px]">Undo</button>
-                    )}
-                    {calibrating && corners.length > 0 && (
-                      <button onClick={clearCorners} className="btn btn-secondary px-3 py-1 text-[11px]">Clear</button>
-                    )}
-                    {calibrating && (
-                      <button onClick={() => setCalibrating(false)} className="btn btn-secondary px-3 py-1 text-[11px]">Done</button>
-                    )}
-                    {!calibrating && corners.length === 4 && (
-                      <button onClick={() => setCalibrating(true)} className="btn btn-secondary px-3 py-1 text-[11px]">Edit</button>
-                    )}
-                  </div>
-                </div>
-                {calibrating && (
-                  <div className="rounded-lg overflow-hidden bg-black">
-                    <canvas
-                      ref={calibCanvasRef}
-                      onClick={handleCalibClick}
-                      className="w-full h-auto block object-contain cursor-crosshair"
-                      style={{ maxHeight: 420 }}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-
             <div className="flex gap-3 mt-5 flex-wrap">
               {!result && !analyzing && (
                 <button onClick={analyzeVideo} className="btn btn-primary py-2 pl-6 pr-2 text-sm flex-1 min-w-[200px]">
@@ -670,18 +567,18 @@ export default function BallTrackingPage() {
                     }}
                   >
                     <p className="text-base font-semibold leading-relaxed" style={{ color: result.hitStumps ? 'var(--cs-danger)' : '#22c55e' }}>
-                      {result.verdict}
+                      {result.verdict || (result.hitStumps ? "It would have hit the stumps." : "It would have missed the stumps.")}
                     </p>
                   </div>
                   <div className="text-center p-6 bg-[var(--bg-surface)] rounded-2xl border border-[var(--cs-border)] flex items-center justify-center">
                     <p className="text-base text-[var(--text-main)] leading-relaxed">
-                      {result.bounceText}
+                      {result.bounceText || "We couldn't read where the ball pitched."}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {result.trailOverlayPx && result.trailOverlayPx.length >= 2 && firstFrameUrl && (
+              {result.trailOverlayPx && result.trailOverlayPx.length >= 2 && (
                 <div className="panel col-span-12 p-6">
                   <p className="text-sm font-semibold text-[var(--text-main)] mb-3">Ball trail</p>
                   <div className="relative rounded-xl overflow-hidden bg-black">

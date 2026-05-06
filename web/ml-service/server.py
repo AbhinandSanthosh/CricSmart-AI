@@ -67,6 +67,9 @@ try:
         pixel_to_pitch_coords,
         predict_stump_impact,
         describe_bounce,
+        auto_detect_pitch_corners,
+        fallback_hit_stumps,
+        fallback_bounce_text,
         calculate_speed,
         STUMP_HEIGHT_METERS,
     )
@@ -189,17 +192,18 @@ async def analyze_video(
 ):
     """Analyze a cricket video. Returns a small plain-language result.
 
-    pitch_corners: JSON string of 4 [x, y] pixel pairs in order
+    pitch_corners: optional JSON string of 4 [x, y] pixel pairs in order
         [BL, BR, TR, TL] = bowler-end-leg, bowler-end-off,
                            batter-end-off, batter-end-leg.
-        Required for accurate impact prediction.
+        If omitted (the default), the server auto-detects pitch corners
+        from YOLO stump detections.
     """
     if not ANALYSIS_AVAILABLE:
         return {
             "speed_kmh": 132,
             "hit_stumps": False,
             "verdict": "Demo mode — install YOLO and ensure best.pt exists.",
-            "bounce_text": "",
+            "bounce_text": "Pitched on a good length, in line with the stumps.",
             "trail_overlay_px": [],
         }
 
@@ -256,8 +260,8 @@ async def analyze_video(
             return {
                 "speed_kmh": 0,
                 "hit_stumps": False,
-                "verdict": "Couldn't read the video.",
-                "bounce_text": "",
+                "verdict": "Couldn't read the video. Try uploading it again.",
+                "bounce_text": "We couldn't read where the ball pitched.",
                 "trail_overlay_px": [],
             }
 
@@ -288,23 +292,27 @@ async def analyze_video(
                                                  int(b[2]), int(b[3]), conf))
         cap.release()
 
-        # Stump position (used as height-scale anchor when no homography is available)
+        # Stump position (used as height-scale anchor + auto-corner anchor)
         stump_top_y = None
         stump_bottom_y = None
+        stump_center_x = frame_w // 2
         if stump_detections:
-            stump_detections.sort(key=lambda s: s[5], reverse=True)
-            top_n = stump_detections[:min(10, len(stump_detections))]
+            sorted_dets = sorted(stump_detections, key=lambda s: s[5], reverse=True)
+            top_n = sorted_dets[:min(10, len(sorted_dets))]
+            avg_x1 = sum(s[1] for s in top_n) / len(top_n)
+            avg_x2 = sum(s[3] for s in top_n) / len(top_n)
             avg_y1 = sum(s[2] for s in top_n) / len(top_n)
             avg_y2 = sum(s[4] for s in top_n) / len(top_n)
             stump_top_y = int(avg_y1)
             stump_bottom_y = int(avg_y2)
+            stump_center_x = int((avg_x1 + avg_x2) / 2)
 
         if len(raw_detections) < 3:
             return {
                 "speed_kmh": 0,
                 "hit_stumps": False,
                 "verdict": "Couldn't see the ball clearly. Try a brighter side-on video.",
-                "bounce_text": "",
+                "bounce_text": "We couldn't read where the ball pitched.",
                 "trail_overlay_px": [],
             }
 
@@ -314,7 +322,7 @@ async def analyze_video(
                 "speed_kmh": 0,
                 "hit_stumps": False,
                 "verdict": "Couldn't isolate the delivery. Record one ball at a time, side-on.",
-                "bounce_text": "",
+                "bounce_text": "We couldn't read where the ball pitched.",
                 "trail_overlay_px": [],
             }
 
@@ -342,9 +350,19 @@ async def analyze_video(
 
         speed_kmh = calculate_speed(ball_trail, pixels_per_meter, fps)
 
-        # 3D pitch projection (only if user provided 4 corners)
-        if parsed_corners is not None:
-            H = compute_pitch_homography(parsed_corners)
+        # Pick corner source: explicit > auto-detected > none
+        corners = parsed_corners
+        if corners is None:
+            corners = auto_detect_pitch_corners(stump_detections, frame_w, frame_h)
+
+        bounce_idx = 0
+        if len(ball_trail) >= 3:
+            bounce_idx = min(range(len(ball_trail)),
+                             key=lambda i: ball_trail[i][1])
+
+        if corners is not None:
+            # Homography-based 3D path
+            H = compute_pitch_homography(corners)
             pitch_trail = []
             for (u, v) in ball_trail:
                 X_m, Z_m = pixel_to_pitch_coords((u, v), H)
@@ -353,15 +371,26 @@ async def analyze_video(
 
             impact = predict_stump_impact(pitch_trail)
             hit_stumps = bool(impact.get("hit_stumps", False))
-            bounce_text = (
-                describe_bounce(impact.get("bounce_X_m", 0.0),
-                                impact.get("bounce_Z_m", 0.0))
-                if "bounce_X_m" in impact else
-                "Couldn't read where the ball pitched."
-            )
+            if "bounce_X_m" in impact:
+                bounce_text = describe_bounce(impact["bounce_X_m"],
+                                              impact["bounce_Z_m"])
+            else:
+                # Have homography, but parabola fit failed — fall back to pixel-space
+                bx, by = ball_trail[bounce_idx]
+                bounce_text = fallback_bounce_text(
+                    bx, by, stump_center_x, ground_y_px, pixels_per_meter
+                )
         else:
-            hit_stumps = False
-            bounce_text = "Tap the 4 pitch corners on the first frame for an accurate read."
+            # Pixel-space fallback (no stump detections)
+            last_x, last_y = ball_trail[-1]
+            hit_stumps = fallback_hit_stumps(
+                last_x, last_y, stump_center_x,
+                stump_top_y, ground_y_px, pixels_per_meter
+            )
+            bx, by = ball_trail[bounce_idx]
+            bounce_text = fallback_bounce_text(
+                bx, by, stump_center_x, ground_y_px, pixels_per_meter
+            )
 
         verdict = (
             "It would have hit the stumps."
