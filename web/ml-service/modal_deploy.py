@@ -272,6 +272,38 @@ def serve():
             line = "outside leg stump"
         return f"Pitched on a {length}, {line}."
 
+    def auto_detect_pitch_corners(stump_dets, fw, fh):
+        if not stump_dets:
+            return None
+        sd = sorted(stump_dets, key=lambda s: s[5], reverse=True)[:8]
+        avg_x1 = sum(s[1] for s in sd) / len(sd)
+        avg_x2 = sum(s[3] for s in sd) / len(sd)
+        avg_y2 = sum(s[4] for s in sd) / len(sd)
+        cx = (avg_x1 + avg_x2) / 2
+        sw = max(avg_x2 - avg_x1, 8.0)
+        bottom_y = avg_y2
+        half_b = 6.93 * sw
+        half_t = half_b * 0.32
+        top_y = max(int(fh * 0.05), int(bottom_y - fh * 0.65))
+        return [
+            [cx - half_t, float(top_y)],
+            [cx + half_t, float(top_y)],
+            [cx + half_b, float(bottom_y)],
+            [cx - half_b, float(bottom_y)],
+        ]
+
+    def fallback_hit_stumps(last_x, last_y, cx, top_y, gy, mpp):
+        in_lat = abs(last_x - cx) * mpp <= STUMP_HALF_W_M
+        if top_y is not None and gy is not None:
+            in_h = top_y - 5 <= last_y <= gy + 5
+        else:
+            in_h = True
+        return bool(in_lat and in_h)
+
+    def fallback_bounce_text(bx, by, cx, gy, mpp):
+        d = max(0.0, (gy - by) * mpp)
+        return describe_bounce((bx - cx) * mpp, PITCH_LENGTH_M - d)
+
     def smooth_trail(points, num_output=120):
         if len(points) < 2:
             return [list(p) for p in points]
@@ -335,8 +367,8 @@ def serve():
                 return {
                     "speed_kmh": 0,
                     "hit_stumps": False,
-                    "verdict": "Couldn't read the video.",
-                    "bounce_text": "",
+                    "verdict": "Couldn't read the video. Try uploading it again.",
+                    "bounce_text": "We couldn't read where the ball pitched.",
                     "trail_overlay_px": [],
                 }
 
@@ -399,7 +431,7 @@ def serve():
                     "speed_kmh": 0,
                     "hit_stumps": False,
                     "verdict": "Couldn't see the ball clearly. Try a brighter side-on video.",
-                    "bounce_text": "",
+                    "bounce_text": "We couldn't read where the ball pitched.",
                     "trail_overlay_px": [],
                 }
 
@@ -449,9 +481,18 @@ def serve():
             # Speed calculation uses RAW positions (pre-Kalman) for accuracy
             speed = calculate_speed(raw_trail_frames, meters_per_pixel, fps)
 
-            # 3D pitch projection (only if user provided 4 corners)
-            if parsed_corners is not None:
-                H = compute_pitch_homography(parsed_corners)
+            # Pick corner source: explicit > auto-detected > none
+            corners = parsed_corners
+            if corners is None:
+                corners = auto_detect_pitch_corners(stump_detections, frame_w, frame_h)
+
+            stump_top_y = None
+            if stump_detections:
+                sd = sorted(stump_detections, key=lambda s: s[5], reverse=True)[:10]
+                stump_top_y = int(sum(s[2] for s in sd) / len(sd))
+
+            if corners is not None:
+                H = compute_pitch_homography(corners)
                 pitch_trail = []
                 for (u, v) in ball_trail:
                     X_m, Z_m = pixel_to_pitch_coords((u, v), H)
@@ -459,15 +500,24 @@ def serve():
                     pitch_trail.append((X_m, Y_m, Z_m))
                 impact = predict_stump_impact(pitch_trail)
                 hit_stumps = bool(impact.get("hit_stumps", False))
-                bounce_text = (
-                    describe_bounce(impact.get("bounce_X_m", 0.0),
-                                    impact.get("bounce_Z_m", 0.0))
-                    if "bounce_X_m" in impact else
-                    "Couldn't read where the ball pitched."
-                )
+                if "bounce_X_m" in impact:
+                    bounce_text = describe_bounce(impact["bounce_X_m"],
+                                                  impact["bounce_Z_m"])
+                else:
+                    bx, by = ball_trail[bounce_idx]
+                    bounce_text = fallback_bounce_text(
+                        bx, by, stump_center_x, ground_y, meters_per_pixel
+                    )
             else:
-                hit_stumps = False
-                bounce_text = "Tap the 4 pitch corners on the first frame for an accurate read."
+                last_x, last_y = ball_trail[-1]
+                hit_stumps = fallback_hit_stumps(
+                    last_x, last_y, stump_center_x, stump_top_y,
+                    ground_y, meters_per_pixel
+                )
+                bx, by = ball_trail[bounce_idx]
+                bounce_text = fallback_bounce_text(
+                    bx, by, stump_center_x, ground_y, meters_per_pixel
+                )
 
             verdict = (
                 "It would have hit the stumps."

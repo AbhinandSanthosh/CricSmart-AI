@@ -136,3 +136,78 @@ def describe_bounce(bounce_X_m, bounce_Z_m):
         line = "outside leg stump"
 
     return f"Pitched on a {length}, {line}."
+
+
+def auto_detect_pitch_corners(stump_detections, frame_w, frame_h):
+    """Heuristic pitch-corner derivation from YOLO stump detections.
+
+    Returns [BL, BR, TR, TL] pixel coords, ordered:
+      bowler-end-leg, bowler-end-off, batter-end-off, batter-end-leg.
+    Returns None if no stump detections (caller should fall back to
+    pixel-space heuristics).
+
+    Geometry assumptions:
+      - Camera positioned roughly behind the bowler (most common amateur view)
+        with the batter's stumps visible in the lower portion of the frame.
+      - Pitch surface tapers toward the bowler end due to perspective.
+      - Pitch is 3.05 m wide; each stump set spans 0.22 m, so half the pitch
+        width is ~6.93 stump-widths.
+      - Bowler-end appearance is ~32% as wide as batter-end on a typical
+        amateur side-on / behind-bowler shot (perspective compression).
+
+    stump_detections: list of (frame_idx, x1, y1, x2, y2, conf) tuples.
+    """
+    if not stump_detections:
+        return None
+
+    sorted_dets = sorted(stump_detections, key=lambda s: s[5], reverse=True)
+    top = sorted_dets[: min(8, len(sorted_dets))]
+    avg_x1 = sum(s[1] for s in top) / len(top)
+    avg_x2 = sum(s[3] for s in top) / len(top)
+    avg_y2 = sum(s[4] for s in top) / len(top)
+
+    stump_center_x = (avg_x1 + avg_x2) / 2
+    stump_pixel_width = max(avg_x2 - avg_x1, 8.0)
+    stump_bottom_y = avg_y2
+
+    half_pitch_at_batter_px = 6.93 * stump_pixel_width
+    perspective_factor = 0.32
+    half_pitch_at_bowler_px = half_pitch_at_batter_px * perspective_factor
+
+    bowler_end_y = max(int(frame_h * 0.05),
+                       int(stump_bottom_y - frame_h * 0.65))
+
+    BL = [stump_center_x - half_pitch_at_bowler_px, float(bowler_end_y)]
+    BR = [stump_center_x + half_pitch_at_bowler_px, float(bowler_end_y)]
+    TR = [stump_center_x + half_pitch_at_batter_px, float(stump_bottom_y)]
+    TL = [stump_center_x - half_pitch_at_batter_px, float(stump_bottom_y)]
+    return [BL, BR, TR, TL]
+
+
+def fallback_hit_stumps(last_x_px, last_y_px, stump_center_x,
+                        stump_top_y, ground_y_px, meters_per_pixel):
+    """Pixel-space LBW check when no homography is available.
+
+    Uses the detected stump bbox + meters_per_pixel scale to decide whether
+    the last detected ball position falls within the stump area in real
+    meters (0.22 m wide × 0.711 m tall). Better than a hardcoded pixel range
+    because it scales with detected stump size.
+    """
+    lateral_offset_m = abs(last_x_px - stump_center_x) * meters_per_pixel
+    in_lateral = lateral_offset_m <= STUMP_HALF_W_M
+    if stump_top_y is not None and ground_y_px is not None:
+        in_height = stump_top_y - 5 <= last_y_px <= ground_y_px + 5
+    else:
+        in_height = True
+    return bool(in_lateral and in_height)
+
+
+def fallback_bounce_text(bounce_x_px, bounce_y_px, stump_center_x,
+                         ground_y_px, meters_per_pixel):
+    """Pixel-space bounce description when homography isn't available.
+    Reuses describe_bounce with pixel→meter conversions.
+    """
+    distance_from_stumps_m = max(0.0, (ground_y_px - bounce_y_px) * meters_per_pixel)
+    bounce_Z_m = PITCH_LENGTH_M - distance_from_stumps_m
+    bounce_X_m = (bounce_x_px - stump_center_x) * meters_per_pixel
+    return describe_bounce(bounce_X_m, bounce_Z_m)
