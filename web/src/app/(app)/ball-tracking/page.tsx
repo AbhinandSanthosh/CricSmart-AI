@@ -9,6 +9,7 @@ interface TrackingResult {
   verdict: string;
   bounceText: string;
   trailOverlayPx: [number, number][];
+  outputVideoUrl?: string;
 }
 
 function formatTime(s: number) {
@@ -42,6 +43,18 @@ export default function BallTrackingPage() {
   // First-frame thumbnail used as the trail backdrop (auto-captured on upload)
   const [firstFrameUrl, setFirstFrameUrl] = useState<string | null>(null);
   const [frameSize, setFrameSize] = useState<{ w: number; h: number } | null>(null);
+
+  // Anchor the result section so we can scroll into it on mobile after analyze
+  const resultAnchorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!result || !resultAnchorRef.current) return;
+    // small delay so the panel has laid out
+    const id = window.setTimeout(() => {
+      resultAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+    return () => window.clearTimeout(id);
+  }, [result]);
 
   // Live capture state
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
@@ -173,19 +186,48 @@ export default function BallTrackingPage() {
     }
   }
 
+  function pickRecorderMimeType(): string {
+    // Try MP4 first (iOS Safari only supports MP4), then WebM variants.
+    const candidates = [
+      "video/mp4;codecs=h264",
+      "video/mp4",
+      "video/webm;codecs=vp9,opus",
+      "video/webm;codecs=vp8,opus",
+      "video/webm",
+    ];
+    if (typeof MediaRecorder === "undefined") return "";
+    for (const t of candidates) {
+      try {
+        if (MediaRecorder.isTypeSupported(t)) return t;
+      } catch {
+        /* some browsers throw on unknown types */
+      }
+    }
+    return "";
+  }
+
   function startRecording() {
     if (!liveStream) return;
     chunksRef.current = [];
-    const mr = new MediaRecorder(liveStream, { mimeType: "video/webm" });
+    const mimeType = pickRecorderMimeType();
+    let mr: MediaRecorder;
+    try {
+      mr = mimeType
+        ? new MediaRecorder(liveStream, { mimeType })
+        : new MediaRecorder(liveStream);
+    } catch (e) {
+      setError("Recording isn't supported on this device. Try uploading a video instead.");
+      return;
+    }
     mr.ondataavailable = (e) => {
       if (e.data.size > 0) chunksRef.current.push(e.data);
     };
     mr.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      const blobType = mr.mimeType || mimeType || "video/mp4";
+      const blob = new Blob(chunksRef.current, { type: blobType });
       videoBlobRef.current = blob;
       const url = URL.createObjectURL(blob);
       setVideoUrl(url);
-      // Stop camera
       if (liveStream) {
         liveStream.getTracks().forEach((t) => t.stop());
         setLiveStream(null);
@@ -296,7 +338,8 @@ export default function BallTrackingPage() {
 
       if (videoData) {
         const formData = new FormData();
-        const filename = fileFromInput?.name || "recording.webm";
+        const isMp4 = (videoData as Blob).type?.includes("mp4");
+        const filename = fileFromInput?.name || (isMp4 ? "recording.mp4" : "recording.webm");
         formData.append("video", videoData, filename);
         if (trimming) {
           formData.append("trim_start", trimStart.toFixed(2));
@@ -314,6 +357,7 @@ export default function BallTrackingPage() {
               verdict: data.verdict || "",
               bounceText: data.bounce_text || "",
               trailOverlayPx: data.trail_overlay_px || [],
+              outputVideoUrl: data.output_video_url || undefined,
             });
             setAnalyzing(false);
             return;
@@ -445,7 +489,18 @@ export default function BallTrackingPage() {
               <h2 className="panel-title">Preview</h2>
             </div>
 
-            <video ref={videoRef} src={videoUrl} controls onLoadedMetadata={onVideoLoaded} className="w-full rounded-xl object-contain bg-black" style={{ maxHeight: 400 }} />
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              controls
+              playsInline
+              muted
+              preload="metadata"
+              onLoadedMetadata={onVideoLoaded}
+              onError={() => setError("This video file can't be previewed in the browser, but you can still tap Analyze.")}
+              className="w-full rounded-xl object-contain bg-black"
+              style={{ maxHeight: 400 }}
+            />
 
             {/* Trim Controls */}
             {duration > 0 && !result && (
@@ -552,6 +607,7 @@ export default function BallTrackingPage() {
           {/* Results — three plain-text cards + simple trail thumbnail */}
           {result && (
             <>
+              <div ref={resultAnchorRef} className="col-span-12" aria-hidden />
               <div className="panel col-span-12 p-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="text-center p-6 bg-[var(--cs-accent-light)] rounded-2xl border border-[var(--cs-accent)]/20">
@@ -578,7 +634,23 @@ export default function BallTrackingPage() {
                 </div>
               </div>
 
-              {result.trailOverlayPx && result.trailOverlayPx.length >= 2 && (
+              {result.outputVideoUrl ? (
+                <div className="panel col-span-12 p-6">
+                  <p className="text-sm font-semibold text-[var(--text-main)] mb-3">Ball trail</p>
+                  <div className="relative rounded-xl overflow-hidden bg-black">
+                    <video
+                      src={result.outputVideoUrl}
+                      controls
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      className="w-full h-auto block object-contain bg-black"
+                      style={{ maxHeight: 480 }}
+                    />
+                  </div>
+                </div>
+              ) : result.trailOverlayPx && result.trailOverlayPx.length >= 2 ? (
                 <div className="panel col-span-12 p-6">
                   <p className="text-sm font-semibold text-[var(--text-main)] mb-3">Ball trail</p>
                   <div className="relative rounded-xl overflow-hidden bg-black">
@@ -589,7 +661,7 @@ export default function BallTrackingPage() {
                     />
                   </div>
                 </div>
-              )}
+              ) : null}
             </>
           )}
         </>
