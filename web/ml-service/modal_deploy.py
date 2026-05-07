@@ -55,15 +55,8 @@ def serve():
 
     from fastapi import FastAPI, UploadFile, File, Form, Request
     from fastapi.middleware.cors import CORSMiddleware
-    from fastapi.responses import FileResponse
-    from fastapi.staticfiles import StaticFiles
-
-    # --- Setup ---
-    OUTPUT_DIR = Path(tempfile.gettempdir()) / "cricsmart_outputs"
-    OUTPUT_DIR.mkdir(exist_ok=True)
 
     api = FastAPI(title="CricSmart Ball Tracking (Modal)")
-    api.mount("/outputs", StaticFiles(directory=str(OUTPUT_DIR)), name="outputs")
 
     api.add_middleware(
         CORSMiddleware,
@@ -209,13 +202,6 @@ def serve():
     async def health():
         return {"status": "ok", "gpu": True, "model": str(MODEL_PATH)}
 
-    @api.get("/outputs/{filename}")
-    async def get_output(filename: str):
-        path = OUTPUT_DIR / filename
-        if path.exists():
-            return FileResponse(str(path), media_type="video/mp4")
-        return {"error": "not found"}
-
     # --- Plain-pitch-frame helpers (mirror utils/physics_utils.py) ---
     PITCH_LENGTH_M = 20.12
     PITCH_HALF_W_M = 1.525
@@ -260,19 +246,25 @@ def serve():
             "bounce_Z_m": float(Z[bounce_idx]),
         }
 
-    def describe_bounce(bounce_X_m, bounce_Z_m):
+    SHOT_ADVICE = {
+        "Yorker": "Block or flick",
+        "Full Length": "Drive",
+        "Good Length": "Defend or leave",
+        "Short Ball": "Pull or duck",
+    }
+
+    def classify_length(bounce_Z_m):
         d = PITCH_LENGTH_M - bounce_Z_m
-        length = ("yorker length" if d < 2.0 else
-                  "full length" if d < 4.0 else
-                  "good length" if d < 7.0 else
-                  "short of a length")
-        if abs(bounce_X_m) <= STUMP_HALF_W_M:
-            line = "in line with the stumps"
-        elif bounce_X_m < -STUMP_HALF_W_M:
-            line = "outside off stump"
-        else:
-            line = "outside leg stump"
-        return f"Pitched on a {length}, {line}."
+        if d < 2.0:
+            return "Yorker"
+        if d < 4.0:
+            return "Full Length"
+        if d < 7.0:
+            return "Good Length"
+        return "Short Ball"
+
+    def shot_advice_for(label):
+        return SHOT_ADVICE.get(label, "")
 
     def auto_detect_pitch_corners(stump_dets, fw, fh):
         if not stump_dets:
@@ -301,92 +293,6 @@ def serve():
         else:
             in_h = True
         return bool(in_lat and in_h)
-
-    def fallback_bounce_text(bx, by, cx, gy, mpp):
-        d = max(0.0, (gy - by) * mpp)
-        return describe_bounce((bx - cx) * mpp, PITCH_LENGTH_M - d)
-
-    def smooth_trail(points, num_output=120):
-        if len(points) < 2:
-            return [list(p) for p in points]
-        pts = np.array(points, dtype=float)
-        diffs = np.diff(pts, axis=0)
-        seg = np.sqrt((diffs ** 2).sum(axis=1))
-        cum = np.concatenate([[0], np.cumsum(seg)])
-        if cum[-1] == 0:
-            return [list(p) for p in points]
-        t = cum / cum[-1]
-        n = min(num_output, max(2, len(points)))
-        t_new = np.linspace(0, 1, n)
-        x_smooth = np.interp(t_new, t, pts[:, 0])
-        y_smooth = np.interp(t_new, t, pts[:, 1])
-        return [[int(x), int(y)] for x, y in zip(x_smooth, y_smooth)]
-
-    def render_trail_only_video(video_path, ball_trail, hit_stumps,
-                                ball_trail_frames=None):
-        """Re-render the input video with one growing semi-transparent trail
-        curve. No HUD, no labels, no freeze frame."""
-        if not ball_trail or len(ball_trail) < 2:
-            return None
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            return None
-        fps = cap.get(cv2.CAP_PROP_FPS) or 30
-        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
-        raw = str(OUTPUT_DIR / f"{uuid.uuid4().hex}_raw.mp4")
-        out = cv2.VideoWriter(raw, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
-        if not out.isOpened():
-            cap.release()
-            return None
-        smooth_pts = smooth_trail(list(ball_trail), num_output=200)
-        col = (75, 42, 255) if hit_stumps else (94, 197, 34)
-        glow = (40, 20, 200) if hit_stumps else (50, 130, 20)
-        scale = max(w, h) / 800.0
-        lt = max(2, int(3 * scale))
-        gt = lt + 4
-        if ball_trail_frames and len(ball_trail_frames) == len(ball_trail):
-            def progress(f_idx):
-                seen = sum(1 for fi in ball_trail_frames if fi <= f_idx)
-                return seen / max(len(ball_trail), 1)
-        else:
-            def progress(f_idx):
-                return min(1.0, (f_idx + 1) / max(total_frames * 0.85, 1))
-        f_idx = 0
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            n_pts = max(2, int(len(smooth_pts) * progress(f_idx)))
-            if n_pts >= 2:
-                visible = smooth_pts[:n_pts]
-                for j in range(1, len(visible)):
-                    cv2.line(frame, tuple(visible[j-1]), tuple(visible[j]), glow, gt, cv2.LINE_AA)
-                for j in range(1, len(visible)):
-                    cv2.line(frame, tuple(visible[j-1]), tuple(visible[j]), col, lt, cv2.LINE_AA)
-                cv2.circle(frame, tuple(visible[-1]), max(4, int(5*scale)), (255,255,255), -1, cv2.LINE_AA)
-            out.write(frame)
-            f_idx += 1
-        cap.release()
-        out.release()
-        h264 = f"{uuid.uuid4().hex}.mp4"
-        h264p = str(OUTPUT_DIR / h264)
-        try:
-            r = subprocess.run(
-                ["ffmpeg", "-y", "-i", raw, "-c:v", "libx264", "-preset", "fast",
-                 "-crf", "23", "-pix_fmt", "yuv420p", "-movflags", "+faststart", h264p],
-                capture_output=True, timeout=120,
-            )
-            if r.returncode == 0 and os.path.exists(h264p) and os.path.getsize(h264p) > 0:
-                try:
-                    os.unlink(raw)
-                except Exception:
-                    pass
-                return h264
-        except Exception:
-            pass
-        return Path(raw).name
 
     @api.post("/analyze")
     async def analyze_video(
@@ -436,9 +342,10 @@ def serve():
                 return {
                     "speed_kmh": 0,
                     "hit_stumps": False,
-                    "verdict": "Couldn't read the video. Try uploading it again.",
-                    "bounce_text": "We couldn't read where the ball pitched.",
-                    "trail_overlay_px": [],
+                    "verdict": "Wicket missing",
+                    "length_label": None,
+                    "shot_advice": None,
+                    "error": "Couldn't read the video.",
                 }
 
             fps = cap.get(cv2.CAP_PROP_FPS) or 30
@@ -499,9 +406,10 @@ def serve():
                 return {
                     "speed_kmh": 0,
                     "hit_stumps": False,
-                    "verdict": "Couldn't see the ball clearly. Try a brighter side-on video.",
-                    "bounce_text": "We couldn't read where the ball pitched.",
-                    "trail_overlay_px": [],
+                    "verdict": "Wicket missing",
+                    "length_label": None,
+                    "shot_advice": None,
+                    "error": "Couldn't see the ball. Try a brighter, side-on clip.",
                 }
 
             # Find delivery sequence
@@ -560,6 +468,9 @@ def serve():
                 sd = sorted(stump_detections, key=lambda s: s[5], reverse=True)[:10]
                 stump_top_y = int(sum(s[2] for s in sd) / len(sd))
 
+            bounce_Z_m = None
+            bounce_X_m = None
+
             if corners is not None:
                 H = compute_pitch_homography(corners)
                 pitch_trail = []
@@ -570,13 +481,12 @@ def serve():
                 impact = predict_stump_impact(pitch_trail)
                 hit_stumps = bool(impact.get("hit_stumps", False))
                 if "bounce_X_m" in impact:
-                    bounce_text = describe_bounce(impact["bounce_X_m"],
-                                                  impact["bounce_Z_m"])
+                    bounce_X_m = impact["bounce_X_m"]
+                    bounce_Z_m = impact["bounce_Z_m"]
                 else:
                     bx, by = ball_trail[bounce_idx]
-                    bounce_text = fallback_bounce_text(
-                        bx, by, stump_center_x, ground_y, meters_per_pixel
-                    )
+                    bounce_X_m = (bx - stump_center_x) * meters_per_pixel
+                    bounce_Z_m = PITCH_LENGTH_M - max(0.0, (ground_y - by) * meters_per_pixel)
             else:
                 last_x, last_y = ball_trail[-1]
                 hit_stumps = fallback_hit_stumps(
@@ -584,40 +494,20 @@ def serve():
                     ground_y, meters_per_pixel
                 )
                 bx, by = ball_trail[bounce_idx]
-                bounce_text = fallback_bounce_text(
-                    bx, by, stump_center_x, ground_y, meters_per_pixel
-                )
+                bounce_X_m = (bx - stump_center_x) * meters_per_pixel
+                bounce_Z_m = PITCH_LENGTH_M - max(0.0, (ground_y - by) * meters_per_pixel)
 
-            verdict = (
-                "It would have hit the stumps."
-                if hit_stumps else
-                "It would have missed the stumps."
-            )
+            length_label = classify_length(bounce_Z_m) if bounce_Z_m is not None else None
+            shot_advice = shot_advice_for(length_label) if length_label else None
+            verdict = "Wicket hitting" if hit_stumps else "Wicket missing"
 
-            # Render trail-only overlay video (best-effort)
-            output_video_filename = None
-            try:
-                trail_frame_indices = [tf[0] for tf in ball_trail_frames]
-                output_video_filename = render_trail_only_video(
-                    analysis_path, ball_trail, hit_stumps,
-                    ball_trail_frames=trail_frame_indices,
-                )
-            except Exception as e:
-                print(f"  trail render failed: {e}")
-
-            response = {
+            return {
                 "speed_kmh": round(speed, 1),
                 "hit_stumps": hit_stumps,
                 "verdict": verdict,
-                "bounce_text": bounce_text,
-                "trail_overlay_px": smooth_trail(ball_trail, num_output=120),
+                "length_label": length_label,
+                "shot_advice": shot_advice,
             }
-            if output_video_filename:
-                base = os.environ.get("ML_SERVICE_BASE_URL")
-                if not base:
-                    base = str(request.base_url).rstrip("/")
-                response["output_video_url"] = f"{base}/outputs/{output_video_filename}"
-            return response
         finally:
             os.unlink(tmp_path)
 

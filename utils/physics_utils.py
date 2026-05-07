@@ -115,18 +115,44 @@ def predict_stump_impact(pitch_trail):
     }
 
 
+def classify_length(bounce_Z_m):
+    """Returns one of: 'Yorker', 'Full Length', 'Good Length', 'Short Ball'.
+    Based on distance from the batter-end stump line (Z = 20.12 m)."""
+    distance_to_stumps = PITCH_LENGTH_M - bounce_Z_m
+    if distance_to_stumps < 2.0:
+        return "Yorker"
+    if distance_to_stumps < 4.0:
+        return "Full Length"
+    if distance_to_stumps < 7.0:
+        return "Good Length"
+    return "Short Ball"
+
+
+# Terse one-or-two-word advice for each delivery length.
+SHOT_ADVICE = {
+    "Yorker": "Block or flick",
+    "Full Length": "Drive",
+    "Good Length": "Defend or leave",
+    "Short Ball": "Pull or duck",
+}
+
+
+def shot_advice_for(length_label):
+    return SHOT_ADVICE.get(length_label, "")
+
+
 def describe_bounce(bounce_X_m, bounce_Z_m):
     """Plain-English bounce description. No emojis, no numbers."""
-    distance_to_stumps = PITCH_LENGTH_M - bounce_Z_m
-
-    if distance_to_stumps < 2.0:
+    length = classify_length(bounce_Z_m).lower()
+    # match prior pattern wording
+    if length == "yorker":
         length = "yorker length"
-    elif distance_to_stumps < 4.0:
-        length = "full length"
-    elif distance_to_stumps < 7.0:
-        length = "good length"
-    else:
+    elif length == "short ball":
         length = "short of a length"
+    elif length == "full length":
+        length = "full length"
+    elif length == "good length":
+        length = "good length"
 
     if abs(bounce_X_m) <= STUMP_HALF_W_M:
         line = "in line with the stumps"

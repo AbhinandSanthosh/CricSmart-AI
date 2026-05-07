@@ -13,6 +13,8 @@ from utils.physics_utils import (
     pixel_to_pitch_coords,
     predict_stump_impact,
     describe_bounce,
+    classify_length,
+    shot_advice_for,
     auto_detect_pitch_corners,
     fallback_hit_stumps,
     fallback_bounce_text,
@@ -177,6 +179,25 @@ def test_fallback_bounce_text():
     print(f"fallback_bounce_text: OK -> {text}")
 
 
+def test_classify_length_buckets():
+    # bowler crease at Z=0, stumps at Z=20.12. Distance to stumps = 20.12 - bounce_Z.
+    assert classify_length(19.5) == "Yorker"          # 0.62 m -> yorker
+    assert classify_length(17.0) == "Full Length"     # 3.12 m -> full
+    assert classify_length(14.0) == "Good Length"     # 6.12 m -> good
+    assert classify_length(10.0) == "Short Ball"      # 10.12 m -> short
+    print("classify_length buckets: OK")
+
+
+def test_shot_advice_for():
+    assert shot_advice_for("Yorker") == "Block or flick"
+    assert shot_advice_for("Full Length") == "Drive"
+    assert shot_advice_for("Good Length") == "Defend or leave"
+    assert shot_advice_for("Short Ball") == "Pull or duck"
+    assert shot_advice_for(None) == ""
+    assert shot_advice_for("nonsense") == ""
+    print("shot_advice_for: OK")
+
+
 if __name__ == "__main__":
     test_homography_round_trip()
     test_impact_hit()
@@ -187,4 +208,6 @@ if __name__ == "__main__":
     test_auto_detect_returns_none_without_stumps()
     test_fallback_hit_stumps()
     test_fallback_bounce_text()
+    test_classify_length_buckets()
+    test_shot_advice_for()
     print("\nAll tests passed.")
