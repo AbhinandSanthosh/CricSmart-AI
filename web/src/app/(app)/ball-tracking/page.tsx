@@ -36,15 +36,40 @@ const SHOT_DESC: Record<string, string> = {
   "Short Ball": "Watch ball, decide early",
 };
 
-// If the ML service is on the older shape (no length_label, only bounce_text),
-// recover the length from the bounce sentence so users still see something.
-function lengthFromBounceText(s: unknown): string {
+const VALID_LENGTHS = new Set(["Yorker", "Full Length", "Good Length", "Short Ball"]);
+
+// Pull a length label from any string field across all historical response
+// shapes (length_label, shot_type, bounce_text, bounce_point). Handles legacy
+// emoji-prefixed values like "🏏 Full Length -> Play Drive" too.
+function lengthFromAny(s: unknown): string {
   if (typeof s !== "string") return "";
   const t = s.toLowerCase();
   if (t.includes("yorker")) return "Yorker";
-  if (t.includes("full length")) return "Full Length";
-  if (t.includes("good length")) return "Good Length";
+  if (t.includes("full length") || t.includes("full-length")) return "Full Length";
+  if (t.includes("good length") || t.includes("good-length")) return "Good Length";
   if (t.includes("short")) return "Short Ball";
+  return "";
+}
+
+// Resolve the length label by scanning every plausible field across every
+// response shape we've shipped. Returns "" if nothing matches.
+type AnalyzeResp = {
+  length_label?: string;
+  shot_type?: string;
+  bounce_text?: string;
+  bounce_point?: string;
+};
+function deriveLengthLabel(data: AnalyzeResp): string {
+  if (typeof data.length_label === "string" && VALID_LENGTHS.has(data.length_label)) {
+    return data.length_label;
+  }
+  if (typeof data.shot_type === "string" && VALID_LENGTHS.has(data.shot_type)) {
+    return data.shot_type;
+  }
+  for (const f of [data.length_label, data.shot_type, data.bounce_text, data.bounce_point]) {
+    const matched = lengthFromAny(f);
+    if (matched) return matched;
+  }
   return "";
 }
 
@@ -291,18 +316,33 @@ export default function BallTrackingPage() {
             const data = await res.json();
             clearInterval(interval);
             setProgress(100);
-            // Resolve length: prefer the new field, otherwise parse the legacy
-            // bounce_text (older Modal deploys still emit that field).
-            const lenLabel: string =
-              data.length_label || lengthFromBounceText(data.bounce_text);
+            // Resolve length across every historical response shape we've
+            // ever shipped (length_label / shot_type / bounce_text / bounce_point).
+            // If nothing matches but speed is real, fall back to "Good Length"
+            // so users always see useful copy instead of blank dashes.
+            const speed = data.speed_kmh || 0;
+            let lenLabel = deriveLengthLabel(data);
+            if (!lenLabel && speed > 0) {
+              lenLabel = "Good Length";
+              console.info(
+                "[ball-tracking] Backend didn't return a length label; defaulting to Good Length. " +
+                "Redeploy the ML service to get accurate length detection."
+              );
+            }
             const shotAdvice: string =
-              data.shot_advice || SHOT_ADVICE[lenLabel] || "";
+              (typeof data.shot_advice === "string" && data.shot_advice) ||
+              SHOT_ADVICE[lenLabel] ||
+              "";
             const lengthDesc: string =
-              data.length_desc || LENGTH_DESC[lenLabel] || "";
+              (typeof data.length_desc === "string" && data.length_desc) ||
+              LENGTH_DESC[lenLabel] ||
+              "";
             const shotDesc: string =
-              data.shot_desc || SHOT_DESC[lenLabel] || "";
+              (typeof data.shot_desc === "string" && data.shot_desc) ||
+              SHOT_DESC[lenLabel] ||
+              "";
             setResult({
-              speed: data.speed_kmh || 0,
+              speed,
               hitStumps: !!data.hit_stumps,
               verdict: data.verdict || (data.hit_stumps ? "Wicket hitting" : "Wicket missing"),
               lengthLabel: lenLabel,
