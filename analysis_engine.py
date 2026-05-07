@@ -203,6 +203,7 @@ def analyze_ball_tracking(video_path, roi_box, track_ball, advanced, fps,
     from utils.physics_utils import (
         compute_pitch_homography, pixel_to_pitch_coords,
         predict_stump_impact, classify_length, shot_advice_for,
+        length_desc_for, shot_desc_for,
         PITCH_LENGTH_M as PITCH_LEN,
     )
 
@@ -251,7 +252,9 @@ def analyze_ball_tracking(video_path, roi_box, track_ball, advanced, fps,
             "hit_stumps": False,
             "verdict": "Wicket missing",
             "length_label": None,
+            "length_desc": None,
             "shot_advice": None,
+            "shot_desc": None,
             "error": "Couldn't see the ball clearly. Try a brighter, side-on clip.",
         }
 
@@ -280,6 +283,8 @@ def analyze_ball_tracking(video_path, roi_box, track_ball, advanced, fps,
 
     length_label = classify_length(bounce_Z_m) if bounce_Z_m is not None else None
     shot_advice = shot_advice_for(length_label) if length_label else None
+    length_desc = length_desc_for(length_label) if length_label else None
+    shot_desc = shot_desc_for(length_label) if length_label else None
     verdict = "Wicket hitting" if hit_stumps else "Wicket missing"
 
     stats = {
@@ -288,7 +293,9 @@ def analyze_ball_tracking(video_path, roi_box, track_ball, advanced, fps,
         "hit_stumps": hit_stumps,
         "verdict": verdict,
         "length_label": length_label,
+        "length_desc": length_desc,
         "shot_advice": shot_advice,
+        "shot_desc": shot_desc,
     }
 
     return ball_trail, bounce_point_px, None, None, stats

@@ -68,6 +68,8 @@ try:
         predict_stump_impact,
         classify_length,
         shot_advice_for,
+        length_desc_for,
+        shot_desc_for,
         auto_detect_pitch_corners,
         fallback_hit_stumps,
         calculate_speed,
@@ -184,7 +186,9 @@ async def analyze_video(
             "hit_stumps": False,
             "verdict": "Demo",
             "length_label": "Good Length",
+            "length_desc": "4-7m from stumps",
             "shot_advice": "Defend or leave",
+            "shot_desc": "Soft hands, straight bat",
         }
 
     parsed_corners = None
@@ -242,7 +246,9 @@ async def analyze_video(
                 "hit_stumps": False,
                 "verdict": "Wicket missing",
                 "length_label": None,
+                "length_desc": None,
                 "shot_advice": None,
+                "shot_desc": None,
                 "error": "Couldn't read the video.",
             }
 
@@ -294,7 +300,9 @@ async def analyze_video(
                 "hit_stumps": False,
                 "verdict": "Wicket missing",
                 "length_label": None,
+                "length_desc": None,
                 "shot_advice": None,
+                "shot_desc": None,
                 "error": "Couldn't see the ball. Try a brighter, side-on clip.",
             }
 
@@ -305,7 +313,9 @@ async def analyze_video(
                 "hit_stumps": False,
                 "verdict": "Wicket missing",
                 "length_label": None,
+                "length_desc": None,
                 "shot_advice": None,
+                "shot_desc": None,
                 "error": "Couldn't isolate one delivery. Record one ball at a time.",
             }
 
@@ -381,6 +391,8 @@ async def analyze_video(
 
         length_label = classify_length(bounce_Z_m) if bounce_Z_m is not None else None
         shot_advice = shot_advice_for(length_label) if length_label else None
+        length_desc = length_desc_for(length_label) if length_label else None
+        shot_desc = shot_desc_for(length_label) if length_label else None
         verdict = "Wicket hitting" if hit_stumps else "Wicket missing"
 
         return {
@@ -388,7 +400,9 @@ async def analyze_video(
             "hit_stumps": hit_stumps,
             "verdict": verdict,
             "length_label": length_label,
+            "length_desc": length_desc,
             "shot_advice": shot_advice,
+            "shot_desc": shot_desc,
         }
 
     finally:

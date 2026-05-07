@@ -99,12 +99,18 @@ def ball_tracking_page():
                         st.success(stats.get('verdict', 'Wicket missing'))
 
                 length_label = stats.get('length_label')
+                length_desc = stats.get('length_desc')
                 shot_advice = stats.get('shot_advice')
+                shot_desc = stats.get('shot_desc')
                 col3, col4 = st.columns(2)
                 with col3:
                     st.metric("Length", length_label or "-")
+                    if length_desc:
+                        st.caption(length_desc)
                 with col4:
                     st.metric("Shot", shot_advice or "-")
+                    if shot_desc:
+                        st.caption(shot_desc)
 
                 if stats.get('error'):
                     st.warning(stats['error'])

@@ -136,9 +136,33 @@ SHOT_ADVICE = {
     "Short Ball": "Pull or duck",
 }
 
+# Short subtitle describing where the ball pitched (renders under the Length card).
+LENGTH_DESC = {
+    "Yorker": "At the crease",
+    "Full Length": "2-4m from stumps",
+    "Good Length": "4-7m from stumps",
+    "Short Ball": "7m+ from stumps",
+}
+
+# Short subtitle describing how to play the suggested shot.
+SHOT_DESC = {
+    "Yorker": "Jam down quickly, soft hands",
+    "Full Length": "Front foot, swing through line",
+    "Good Length": "Soft hands, straight bat",
+    "Short Ball": "Watch ball, decide early",
+}
+
 
 def shot_advice_for(length_label):
     return SHOT_ADVICE.get(length_label, "")
+
+
+def length_desc_for(length_label):
+    return LENGTH_DESC.get(length_label, "")
+
+
+def shot_desc_for(length_label):
+    return SHOT_DESC.get(length_label, "")
 
 
 def describe_bounce(bounce_X_m, bounce_Z_m):
