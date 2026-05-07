@@ -102,9 +102,9 @@ def ball_tracking_page():
                 shot_advice = stats.get('shot_advice')
                 col3, col4 = st.columns(2)
                 with col3:
-                    st.metric("Length", length_label or "—")
+                    st.metric("Length", length_label or "-")
                 with col4:
-                    st.metric("Shot", shot_advice or "—")
+                    st.metric("Shot", shot_advice or "-")
 
                 if stats.get('error'):
                     st.warning(stats['error'])

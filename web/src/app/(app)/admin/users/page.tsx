@@ -137,7 +137,7 @@ export default function AdminUsersPage() {
                         </div>
                       </td>
                       <td className="py-3 text-[var(--text-muted)]">
-                        {u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}
+                        {u.created_at ? new Date(u.created_at).toLocaleDateString() : "-"}
                       </td>
                       <td className="py-3 text-right">
                         <UserActionsMenu user={u} isSelf={isSelf} onChange={refresh} />

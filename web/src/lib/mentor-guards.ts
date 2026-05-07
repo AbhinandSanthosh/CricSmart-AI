@@ -13,7 +13,7 @@
 //      showing the reply to the user.
 
 export const SAFE_REDIRECT =
-  "I'm a technique coach — I don't track stats, records, or match results (they change all the time and I can't quote them reliably). But I can absolutely help with your technique. What are you working on — batting, bowling, fielding, or the mental game?";
+  "I'm a technique coach - I don't track stats, records, or match results (they change all the time and I can't quote them reliably). But I can absolutely help with your technique. What are you working on - batting, bowling, fielding, or the mental game?";
 
 export interface Classification {
   blocked: boolean;
@@ -22,7 +22,7 @@ export interface Classification {
 
 // Patterns that identify fact-seeking queries (not coaching questions).
 // Each regex has been chosen to catch a *class* of question without being
-// overly broad — "how do I play the pull shot" must still reach the LLM.
+// overly broad - "how do I play the pull shot" must still reach the LLM.
 const FACT_SEEKING_PATTERNS: RegExp[] = [
   // Questions starting with interrogatives that demand a fact
   /\b(who|when|where|which)\s+(is|was|are|were|did|has|have|won|scored|hit|took|holds?)\b/i,
@@ -57,7 +57,7 @@ const FACT_SEEKING_PATTERNS: RegExp[] = [
   /\b(current|recent|latest|today|yesterday|this\s+week|this\s+month|this\s+year)\b.*\b(match|series|score|result|news|ranking)\b/i,
 ];
 
-// If the question trips one of these, it's clearly about coaching — whitelist
+// If the question trips one of these, it's clearly about coaching - whitelist
 // it even if it contains a suspicious keyword.
 const COACHING_ALLOWLIST: RegExp[] = [
   /\bhow\s+(do\s+i|to|can\s+i|should\s+i)\b.*\b(play|face|bowl|bat|hit|hold|grip|stand|stance|practi[sc]e|train|improve|defend|attack)\b/i,
@@ -81,7 +81,7 @@ export function classifyQuery(message: string): Classification {
 }
 
 // Strip sentences that look like fabricated facts. This runs AFTER the model
-// replies, as a safety net. It's intentionally aggressive — better to lose a
+// replies, as a safety net. It's intentionally aggressive - better to lose a
 // true-but-unverified sentence than to show the user an invented stat.
 const FACT_SENTENCE_PATTERNS: RegExp[] = [
   // Specific numeric cricket stats: "scored 45 runs", "took 3 wickets", "average of 53"
@@ -159,7 +159,7 @@ export function sanitizeReply(raw: string): SanitizedReply {
   // Guards that discard the reply entirely (forcing a fallback):
   //
   //   1. Too short to be useful (< 50 chars).
-  //   2. More than 40% of the original content was stripped — the model was
+  //   2. More than 40% of the original content was stripped - the model was
   //      clearly trying to make things up, so the remaining fragments are
   //      untrustworthy context-free sentences.
   if (cleaned.length < 50) return { cleaned: "", wasSanitized: true };

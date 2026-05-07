@@ -20,13 +20,13 @@ export const metadata: Metadata = {
   description: "AI-powered cricket training platform",
   openGraph: {
     title: "CricEye AI",
-    description: "Detect. Analyse. Improve. — AI-powered cricket training platform",
+    description: "Detect. Analyse. Improve. - AI-powered cricket training platform",
     images: ["/criceye-logo.png"],
   },
   twitter: {
     card: "summary",
     title: "CricEye AI",
-    description: "Detect. Analyse. Improve. — AI-powered cricket training platform",
+    description: "Detect. Analyse. Improve. - AI-powered cricket training platform",
     images: ["/criceye-logo.png"],
   },
 };

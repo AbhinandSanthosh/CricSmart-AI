@@ -69,7 +69,7 @@ export function AnnouncementBanner() {
         if (next && isDismissed(next.id)) setDismissed(true);
         else setDismissed(false);
       } catch {
-        /* offline / network — keep cached value */
+        /* offline / network - keep cached value */
       }
     })();
     return () => {

@@ -118,7 +118,7 @@ export default function AdminAnnouncementsPage() {
 
         <label className="flex items-center gap-2 mt-5 text-sm text-[var(--text-main)] cursor-pointer">
           <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-          <span className="font-semibold">Active — show banner platform-wide</span>
+          <span className="font-semibold">Active - show banner platform-wide</span>
         </label>
 
         <div className="flex justify-end mt-6">

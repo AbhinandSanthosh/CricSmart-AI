@@ -6,13 +6,13 @@ import time
 def fallback_mentor(prompt: str) -> str:
     p = prompt.lower()
     if any(w in p for w in ["head", "eyes", "balance"]):
-        return "Keep your head still and eyes level throughout the shot. Try the 'Shadow Batting' drill — watch yourself in a mirror and focus on keeping your head from moving."
+        return "Keep your head still and eyes level throughout the shot. Try the 'Shadow Batting' drill - watch yourself in a mirror and focus on keeping your head from moving."
     elif any(w in p for w in ["fast", "pace", "bowling", "speed"]):
         return "For pace bowling, focus on your jump-and-gather at the crease. Medicine Ball throws build explosive power. Check the Bowling drills section."
     elif any(w in p for w in ["footwork", "feet", "movement"]):
-        return "Good footwork starts with a balanced stance. Use the agility ladder drill daily — 10 minutes before any batting session makes a big difference."
+        return "Good footwork starts with a balanced stance. Use the agility ladder drill daily - 10 minutes before any batting session makes a big difference."
     elif any(w in p for w in ["grip", "bat", "hold"]):
-        return "Hold the bat with a 'V' formed by thumb and forefinger pointing down the splice. Don't squeeze too tight — a relaxed grip gives better timing."
+        return "Hold the bat with a 'V' formed by thumb and forefinger pointing down the splice. Don't squeeze too tight - a relaxed grip gives better timing."
     else:
         return f"Great question! For '{prompt}', focus on fundamentals first. Check your stance, grip and follow-through. Add it to your next training session and track progress in your Biometric Lab."
 

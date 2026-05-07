@@ -154,7 +154,7 @@ export async function checkAndAwardBadges(
     }
   }
 
-  // first_analysis — always on first analysis
+  // first_analysis - always on first analysis
   award("first_analysis");
 
   // perfect_eyes
@@ -187,7 +187,7 @@ export async function checkAndAwardBadges(
     award("all_rounder_stance");
   }
 
-  // improving_player — check first vs latest score
+  // improving_player - check first vs latest score
   const firstAnalysis = await db.execute({
     sql: "SELECT score FROM analyses WHERE user_id = ? AND type = 'stance' ORDER BY created_at ASC LIMIT 1",
     args: [userId],

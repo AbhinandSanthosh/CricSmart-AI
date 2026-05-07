@@ -12,7 +12,7 @@ DEFAULT_FPS = 30
 
 
 def get_calibration_scale(stump_box, roi_top):
-    """Calculates pixels-to-meters from detected stump height. Fallback only —
+    """Calculates pixels-to-meters from detected stump height. Fallback only -
     prefer compute_pitch_homography when 4 pitch corners are known."""
     if stump_box is None:
         return 0.01, (roi_top + 500)
@@ -79,7 +79,7 @@ def predict_stump_impact(pitch_trail):
         AND 0 <= Y_stump <= 0.711 (stump height).
 
     Coordinate-axis note: the stump-plane test runs on (X lateral, Y height),
-    NOT on (X, Z) — at the stump plane, Z is fixed at 20.12.
+    NOT on (X, Z) - at the stump plane, Z is fixed at 20.12.
     """
     pts = np.asarray(pitch_trail, dtype=float)
     if len(pts) < 4:

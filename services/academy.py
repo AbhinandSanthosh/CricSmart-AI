@@ -23,17 +23,17 @@ def drills_page():
                 st.markdown("### **b) One-Hand Batting**\n- Top hand only for control.")
                 st.markdown("### **c) Colored Ball Drill**\n- Call ball color before hitting.")
             with st.expander("⚡ 3. Footwork & Movement"):
-                st.markdown("### **a) Ladder Drill** — Quick feet with agility ladder.")
-                st.markdown("### **b) Cone Movement** — React to coach's call.")
-                st.markdown("### **c) Advance & Retreat** — Practice coming down for spin.")
+                st.markdown("### **a) Ladder Drill** - Quick feet with agility ladder.")
+                st.markdown("### **b) Cone Movement** - React to coach's call.")
+                st.markdown("### **c) Advance & Retreat** - Practice coming down for spin.")
             with st.expander("💥 4. Power & Shot-Making"):
-                st.markdown("### **a) Range Hitting** — Clear specific zones powerfully.")
-                st.markdown("### **b) Target Practice** — Score by hitting targets.")
-                st.markdown("### **c) Lofted Shot Drill** — Controlled aerial technique.")
+                st.markdown("### **a) Range Hitting** - Clear specific zones powerfully.")
+                st.markdown("### **b) Target Practice** - Score by hitting targets.")
+                st.markdown("### **c) Lofted Shot Drill** - Controlled aerial technique.")
             with st.expander("🧠 5. Game Simulation"):
-                st.markdown("### **a) Scenario** — 30 needed in 3 overs.")
-                st.markdown("### **b) Strike Rotation** — Soft hands for singles.")
-                st.markdown("### **c) Death Overs** — Hitting yorkers and slower balls.")
+                st.markdown("### **a) Scenario** - 30 needed in 3 overs.")
+                st.markdown("### **b) Strike Rotation** - Soft hands for singles.")
+                st.markdown("### **c) Death Overs** - Hitting yorkers and slower balls.")
         with tab2:
             st.markdown("### **Personalized Growth Plan**")
             if st.button("📅 Generate My Batting Plan", use_container_width=True):
@@ -60,13 +60,13 @@ def drills_page():
                 st.write("**c) Shadow Run-Up:** Build muscle memory.")
             with st.expander("💪 3. Style Specific Drills"):
                 if "Spin" in style:
-                    st.write("**a) Spot Bowling** — Same revolution point.")
-                    st.write("**b) Flight & Loop** — Create dip in the air.")
-                    st.write("**c) Spin Release** — Finger/wrist rip.")
+                    st.write("**a) Spot Bowling** - Same revolution point.")
+                    st.write("**b) Flight & Loop** - Create dip in the air.")
+                    st.write("**c) Spin Release** - Finger/wrist rip.")
                 else:
-                    st.write("**a) Medicine Ball Throws** — Explosive power.")
-                    st.write("**b) Sprint Intervals** — Speed and stamina.")
-                    st.write("**c) Resistance Bands** — Strengthen bowling muscles.")
+                    st.write("**a) Medicine Ball Throws** - Explosive power.")
+                    st.write("**b) Sprint Intervals** - Speed and stamina.")
+                    st.write("**c) Resistance Bands** - Strengthen bowling muscles.")
             with st.expander("🧠 4. Variations & Match Strategy"):
                 st.write("**a) Variation Mix:** 1 bouncer, 2 slower balls, 3 stock.")
                 st.write("**b) Death Over Drill:** Defend 10 runs in 6 balls.")

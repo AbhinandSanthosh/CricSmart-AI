@@ -17,7 +17,7 @@ try {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
   auth = getAuth(app);
 } catch (e) {
-  console.warn("[Firebase] Init failed — credentials not configured yet:", (e as Error).message);
+  console.warn("[Firebase] Init failed - credentials not configured yet:", (e as Error).message);
   // Create a minimal app so imports don't crash
   app = {} as FirebaseApp;
   auth = {} as Auth;

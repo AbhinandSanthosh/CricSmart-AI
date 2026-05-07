@@ -18,7 +18,7 @@ try {
   }
   adminAuth = getAuth(adminApp);
 } catch (e) {
-  console.warn("[Firebase Admin] Init failed — credentials not configured yet:", (e as Error).message);
+  console.warn("[Firebase Admin] Init failed - credentials not configured yet:", (e as Error).message);
   adminApp = {} as App;
   adminAuth = {} as Auth;
 }

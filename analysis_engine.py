@@ -84,8 +84,8 @@ def calculate_speed(ball_trail, pixels_per_meter, fps):
     """
     Calculate ball speed using multiple methods and pick the most reliable.
 
-    Method 1: Pixel-based — measure actual pixel displacement, convert via calibration.
-    Method 2: Time-based — use the number of frames the ball is visible and the
+    Method 1: Pixel-based - measure actual pixel displacement, convert via calibration.
+    Method 2: Time-based - use the number of frames the ball is visible and the
               known delivery distance (~18m from release to crease).
 
     Why two methods:
@@ -152,7 +152,7 @@ def calculate_speed(ball_trail, pixels_per_meter, fps):
     time_realistic = 40 <= time_speed <= 165
 
     if pixel_realistic and time_realistic:
-        # Both methods give realistic results — weighted average
+        # Both methods give realistic results - weighted average
         # Trust pixel-based more if calibration was good (not fallback)
         speed = pixel_speed * 0.4 + time_speed * 0.6
     elif pixel_realistic:
@@ -160,7 +160,7 @@ def calculate_speed(ball_trail, pixels_per_meter, fps):
     elif time_realistic:
         speed = time_speed
     else:
-        # Neither is realistic — use time-based with clamping
+        # Neither is realistic - use time-based with clamping
         speed = max(60, min(155, time_speed)) if time_speed > 0 else 80
 
     return round(speed, 1)
