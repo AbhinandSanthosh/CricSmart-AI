@@ -89,14 +89,22 @@ def ball_tracking_page():
                     return
 
                 speed = stats.get('speed_kmh', 0)
-                st.metric("Speed", f"{speed:.0f} km/h")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Speed", f"{speed:.0f} km/h")
+                with col2:
+                    if stats.get('hit_stumps'):
+                        st.error(stats.get('verdict', 'Wicket hitting'))
+                    else:
+                        st.success(stats.get('verdict', 'Wicket missing'))
 
-                verdict = stats.get('verdict', '')
-                if stats.get('hit_stumps'):
-                    st.error(verdict)
-                else:
-                    st.success(verdict)
+                length_label = stats.get('length_label')
+                shot_advice = stats.get('shot_advice')
+                col3, col4 = st.columns(2)
+                with col3:
+                    st.metric("Length", length_label or "—")
+                with col4:
+                    st.metric("Shot", shot_advice or "—")
 
-                bounce_text = stats.get('bounce_text', '')
-                if bounce_text:
-                    st.info(bounce_text)
+                if stats.get('error'):
+                    st.warning(stats['error'])

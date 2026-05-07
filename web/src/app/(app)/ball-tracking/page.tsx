@@ -6,10 +6,10 @@ import { Upload, Play, RotateCcw, Scissors, Video, Camera } from "lucide-react";
 interface TrackingResult {
   speed: number;
   hitStumps: boolean;
-  verdict: string;
-  bounceText: string;
-  trailOverlayPx: [number, number][];
-  outputVideoUrl?: string;
+  verdict: string;          // "Wicket hitting" | "Wicket missing"
+  lengthLabel: string;      // "Yorker" | "Full Length" | "Good Length" | "Short Ball" | ""
+  shotAdvice: string;       // "Block or flick" | "Drive" | "Defend or leave" | "Pull or duck" | ""
+  errorNote?: string;
 }
 
 function formatTime(s: number) {
@@ -30,7 +30,6 @@ export default function BallTrackingPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const liveVideoRef = useRef<HTMLVideoElement>(null);
-  const trajectoryCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // Trim state
   const [duration, setDuration] = useState(0);
@@ -40,16 +39,11 @@ export default function BallTrackingPage() {
   const [dragging, setDragging] = useState<"start" | "end" | null>(null);
   const trackRef = useRef<HTMLDivElement>(null);
 
-  // First-frame thumbnail used as the trail backdrop (auto-captured on upload)
-  const [firstFrameUrl, setFirstFrameUrl] = useState<string | null>(null);
-  const [frameSize, setFrameSize] = useState<{ w: number; h: number } | null>(null);
-
   // Anchor the result section so we can scroll into it on mobile after analyze
   const resultAnchorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!result || !resultAnchorRef.current) return;
-    // small delay so the panel has laid out
     const id = window.setTimeout(() => {
       resultAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 80);
@@ -68,96 +62,6 @@ export default function BallTrackingPage() {
       if (liveStream) liveStream.getTracks().forEach((t) => t.stop());
     };
   }, [liveStream]);
-
-  // Capture the first frame as soon as a video URL is available
-  useEffect(() => {
-    if (!videoUrl) {
-      setFirstFrameUrl(null);
-      setFrameSize(null);
-      return;
-    }
-    const v = document.createElement("video");
-    v.muted = true;
-    v.playsInline = true;
-    v.crossOrigin = "anonymous";
-    v.src = videoUrl;
-
-    const onSeeked = () => {
-      const c = document.createElement("canvas");
-      c.width = v.videoWidth;
-      c.height = v.videoHeight;
-      const ctx = c.getContext("2d");
-      if (!ctx) return;
-      ctx.drawImage(v, 0, 0);
-      setFirstFrameUrl(c.toDataURL("image/jpeg", 0.85));
-      setFrameSize({ w: v.videoWidth, h: v.videoHeight });
-    };
-    v.addEventListener("loadedmetadata", () => { v.currentTime = 0.05; });
-    v.addEventListener("seeked", onSeeked);
-    v.load();
-    return () => {
-      v.removeEventListener("seeked", onSeeked);
-    };
-  }, [videoUrl]);
-
-  // Draw the result trail. Paints the first-frame thumbnail as backdrop when
-  // available, otherwise paints solid black so the trail is always visible.
-  useEffect(() => {
-    if (!result?.trailOverlayPx || result.trailOverlayPx.length < 2) return;
-    const canvas = trajectoryCanvasRef.current;
-    if (!canvas) return;
-
-    const trail = result.trailOverlayPx;
-    // Derive canvas size: prefer captured frame size; otherwise bound by trail extent
-    let w: number;
-    let h: number;
-    if (frameSize) {
-      w = frameSize.w;
-      h = frameSize.h;
-    } else {
-      const xs = trail.map((p) => p[0]);
-      const ys = trail.map((p) => p[1]);
-      w = Math.max(...xs) + 80;
-      h = Math.max(...ys) + 80;
-    }
-
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const paintTrail = () => {
-      const scale = Math.max(w, h) / 800;
-      ctx.strokeStyle = result.hitStumps
-        ? "rgba(255, 42, 75, 0.85)"
-        : "rgba(34, 197, 94, 0.85)";
-      ctx.lineWidth = 4 * scale;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.beginPath();
-      ctx.moveTo(trail[0][0], trail[0][1]);
-      for (let i = 1; i < trail.length; i++) ctx.lineTo(trail[i][0], trail[i][1]);
-      ctx.stroke();
-    };
-
-    if (firstFrameUrl) {
-      const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, w, h);
-        paintTrail();
-      };
-      img.onerror = () => {
-        ctx.fillStyle = "#000";
-        ctx.fillRect(0, 0, w, h);
-        paintTrail();
-      };
-      img.src = firstFrameUrl;
-    } else {
-      ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, w, h);
-      paintTrail();
-    }
-  }, [result, firstFrameUrl, frameSize]);
 
   function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -353,11 +257,11 @@ export default function BallTrackingPage() {
             setProgress(100);
             setResult({
               speed: data.speed_kmh || 0,
-              hitStumps: data.hit_stumps || false,
-              verdict: data.verdict || "",
-              bounceText: data.bounce_text || "",
-              trailOverlayPx: data.trail_overlay_px || [],
-              outputVideoUrl: data.output_video_url || undefined,
+              hitStumps: !!data.hit_stumps,
+              verdict: data.verdict || (data.hit_stumps ? "Wicket hitting" : "Wicket missing"),
+              lengthLabel: data.length_label || "",
+              shotAdvice: data.shot_advice || "",
+              errorNote: data.error || undefined,
             });
             setAnalyzing(false);
             return;
@@ -371,9 +275,9 @@ export default function BallTrackingPage() {
       setResult({
         speed: 128,
         hitStumps: false,
-        verdict: "It would have missed the stumps.",
-        bounceText: "Pitched on a good length, in line with the stumps.",
-        trailOverlayPx: [],
+        verdict: "Wicket missing",
+        lengthLabel: "Good Length",
+        shotAdvice: "Defend or leave",
       });
       setError("ML service not available — showing demo results.");
     } catch {
@@ -392,8 +296,6 @@ export default function BallTrackingPage() {
     setTrimStart(0);
     setTrimEnd(0);
     setDuration(0);
-    setFirstFrameUrl(null);
-    setFrameSize(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -604,64 +506,50 @@ export default function BallTrackingPage() {
             )}
           </div>
 
-          {/* Results — three plain-text cards + simple trail thumbnail */}
+          {/* Results — four terse cards: Speed | Wicket | Length | Shot */}
           {result && (
             <>
               <div ref={resultAnchorRef} className="col-span-12" aria-hidden />
               <div className="panel col-span-12 p-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {/* Speed */}
                   <div className="text-center p-6 bg-[var(--cs-accent-light)] rounded-2xl border border-[var(--cs-accent)]/20">
-                    <div className="text-5xl font-black text-[var(--cs-accent)]">{Math.round(result.speed)}</div>
-                    <div className="text-sm text-[var(--text-muted)] font-semibold mt-1">km/h</div>
-                    <div className="text-xs text-[var(--text-muted)] mt-2">Speed</div>
+                    <div className="text-4xl md:text-5xl font-black text-[var(--cs-accent)]">{Math.round(result.speed)}</div>
+                    <div className="text-xs text-[var(--text-muted)] font-semibold mt-1 tracking-wider">km/h</div>
+                    <div className="text-[11px] text-[var(--text-muted)] mt-2 uppercase tracking-wider">Speed</div>
                   </div>
+                  {/* Wicket hit/miss */}
                   <div
-                    className="text-center p-6 rounded-2xl border flex items-center justify-center"
+                    className="text-center p-6 rounded-2xl border flex flex-col items-center justify-center"
                     style={{
-                      background: result.hitStumps ? 'rgba(255,42,75,0.06)' : 'rgba(34,197,94,0.06)',
-                      borderColor: result.hitStumps ? 'rgba(255,42,75,0.2)' : 'rgba(34,197,94,0.2)',
+                      background: result.hitStumps ? 'rgba(255,42,75,0.08)' : 'rgba(34,197,94,0.08)',
+                      borderColor: result.hitStumps ? 'rgba(255,42,75,0.25)' : 'rgba(34,197,94,0.25)',
                     }}
                   >
-                    <p className="text-base font-semibold leading-relaxed" style={{ color: result.hitStumps ? 'var(--cs-danger)' : '#22c55e' }}>
-                      {result.verdict || (result.hitStumps ? "It would have hit the stumps." : "It would have missed the stumps.")}
-                    </p>
+                    <div className="text-xl md:text-2xl font-extrabold" style={{ color: result.hitStumps ? 'var(--cs-danger)' : '#22c55e' }}>
+                      {result.hitStumps ? "Hitting" : "Missing"}
+                    </div>
+                    <div className="text-[11px] text-[var(--text-muted)] mt-2 uppercase tracking-wider">Wicket</div>
                   </div>
-                  <div className="text-center p-6 bg-[var(--bg-surface)] rounded-2xl border border-[var(--cs-border)] flex items-center justify-center">
-                    <p className="text-base text-[var(--text-main)] leading-relaxed">
-                      {result.bounceText || "We couldn't read where the ball pitched."}
-                    </p>
+                  {/* Length */}
+                  <div className="text-center p-6 bg-[var(--bg-surface)] rounded-2xl border border-[var(--cs-border)] flex flex-col items-center justify-center">
+                    <div className="text-xl md:text-2xl font-extrabold text-[var(--text-main)]">
+                      {result.lengthLabel || "—"}
+                    </div>
+                    <div className="text-[11px] text-[var(--text-muted)] mt-2 uppercase tracking-wider">Length</div>
+                  </div>
+                  {/* Shot suggestion */}
+                  <div className="text-center p-6 bg-[var(--bg-surface)] rounded-2xl border border-[var(--cs-border)] flex flex-col items-center justify-center">
+                    <div className="text-base md:text-xl font-extrabold text-[#8b5cf6]">
+                      {result.shotAdvice || "—"}
+                    </div>
+                    <div className="text-[11px] text-[var(--text-muted)] mt-2 uppercase tracking-wider">Shot</div>
                   </div>
                 </div>
+                {result.errorNote && (
+                  <p className="text-xs text-[var(--text-muted)] mt-4 text-center">{result.errorNote}</p>
+                )}
               </div>
-
-              {result.outputVideoUrl ? (
-                <div className="panel col-span-12 p-6">
-                  <p className="text-sm font-semibold text-[var(--text-main)] mb-3">Ball trail</p>
-                  <div className="relative rounded-xl overflow-hidden bg-black">
-                    <video
-                      src={result.outputVideoUrl}
-                      controls
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      className="w-full h-auto block object-contain bg-black"
-                      style={{ maxHeight: 480 }}
-                    />
-                  </div>
-                </div>
-              ) : result.trailOverlayPx && result.trailOverlayPx.length >= 2 ? (
-                <div className="panel col-span-12 p-6">
-                  <p className="text-sm font-semibold text-[var(--text-main)] mb-3">Ball trail</p>
-                  <div className="relative rounded-xl overflow-hidden bg-black">
-                    <canvas
-                      ref={trajectoryCanvasRef}
-                      className="w-full h-auto block object-contain"
-                      style={{ maxHeight: 480 }}
-                    />
-                  </div>
-                </div>
-              ) : null}
             </>
           )}
         </>

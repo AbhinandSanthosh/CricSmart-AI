@@ -202,7 +202,8 @@ def analyze_ball_tracking(video_path, roi_box, track_ball, advanced, fps,
     """
     from utils.physics_utils import (
         compute_pitch_homography, pixel_to_pitch_coords,
-        predict_stump_impact, describe_bounce, calculate_speed as calc_speed_v2,
+        predict_stump_impact, classify_length, shot_advice_for,
+        PITCH_LENGTH_M as PITCH_LEN,
     )
 
     cap = cv2.VideoCapture(video_path)
@@ -246,10 +247,12 @@ def analyze_ball_tracking(video_path, roi_box, track_ball, advanced, fps,
 
     if len(ball_trail) < 5:
         return ball_trail, None, None, None, {
-            "verdict": "Could not see the ball clearly. Try a brighter, side-on video.",
             "speed_kmh": 0.0,
             "hit_stumps": False,
-            "bounce_text": "",
+            "verdict": "Wicket missing",
+            "length_label": None,
+            "shot_advice": None,
+            "error": "Couldn't see the ball clearly. Try a brighter, side-on clip.",
         }
 
     # 2. PROJECT TO 3D PITCH FRAME
@@ -263,32 +266,29 @@ def analyze_ball_tracking(video_path, roi_box, track_ball, advanced, fps,
     # 3. SPEED
     speed_kmh = calculate_speed(ball_trail, pixels_per_meter, fps)
 
-    # 4. IMPACT + BOUNCE DESCRIPTION (3D frame)
+    # 4. IMPACT + LENGTH (3D pitch frame when available, else pixel-space proxy)
+    bounce_point_px = min(ball_trail, key=lambda p: p[1])
     if pitch_trail and len(pitch_trail) >= 4:
         impact = predict_stump_impact(pitch_trail)
         hit_stumps = bool(impact.get("hit_stumps", False))
-        bounce_text = describe_bounce(
-            impact.get("bounce_X_m", 0.0),
-            impact.get("bounce_Z_m", 0.0),
-        ) if "bounce_X_m" in impact else ""
+        bounce_Z_m = impact.get("bounce_Z_m")
     else:
         hit_stumps = False
-        bounce_text = "Pitch corners not provided — couldn't read where the ball pitched."
+        # bounce_Z_m proxy from pixel space: closer-to-ground = closer to batter
+        by = bounce_point_px[1]
+        bounce_Z_m = PITCH_LEN - max(0.0, (ground_y - by) * pixels_per_meter)
 
-    verdict = (
-        "It would have hit the stumps."
-        if hit_stumps else
-        "It would have missed the stumps."
-    )
-
-    bounce_point_px = min(ball_trail, key=lambda p: p[1])
+    length_label = classify_length(bounce_Z_m) if bounce_Z_m is not None else None
+    shot_advice = shot_advice_for(length_label) if length_label else None
+    verdict = "Wicket hitting" if hit_stumps else "Wicket missing"
 
     stats = {
         "ball_trail_length": len(ball_trail),
         "speed_kmh": round(speed_kmh, 1),
         "hit_stumps": hit_stumps,
         "verdict": verdict,
-        "bounce_text": bounce_text,
+        "length_label": length_label,
+        "shot_advice": shot_advice,
     }
 
     return ball_trail, bounce_point_px, None, None, stats
