@@ -252,6 +252,18 @@ def serve():
         "Good Length": "Defend or leave",
         "Short Ball": "Pull or duck",
     }
+    LENGTH_DESC = {
+        "Yorker": "At the crease",
+        "Full Length": "2-4m from stumps",
+        "Good Length": "4-7m from stumps",
+        "Short Ball": "7m+ from stumps",
+    }
+    SHOT_DESC = {
+        "Yorker": "Jam down quickly, soft hands",
+        "Full Length": "Front foot, swing through line",
+        "Good Length": "Soft hands, straight bat",
+        "Short Ball": "Watch ball, decide early",
+    }
 
     def classify_length(bounce_Z_m):
         d = PITCH_LENGTH_M - bounce_Z_m
@@ -265,6 +277,12 @@ def serve():
 
     def shot_advice_for(label):
         return SHOT_ADVICE.get(label, "")
+
+    def length_desc_for(label):
+        return LENGTH_DESC.get(label, "")
+
+    def shot_desc_for(label):
+        return SHOT_DESC.get(label, "")
 
     def auto_detect_pitch_corners(stump_dets, fw, fh):
         if not stump_dets:
@@ -344,7 +362,9 @@ def serve():
                     "hit_stumps": False,
                     "verdict": "Wicket missing",
                     "length_label": None,
+                    "length_desc": None,
                     "shot_advice": None,
+                    "shot_desc": None,
                     "error": "Couldn't read the video.",
                 }
 
@@ -408,7 +428,9 @@ def serve():
                     "hit_stumps": False,
                     "verdict": "Wicket missing",
                     "length_label": None,
+                    "length_desc": None,
                     "shot_advice": None,
+                    "shot_desc": None,
                     "error": "Couldn't see the ball. Try a brighter, side-on clip.",
                 }
 
@@ -499,6 +521,8 @@ def serve():
 
             length_label = classify_length(bounce_Z_m) if bounce_Z_m is not None else None
             shot_advice = shot_advice_for(length_label) if length_label else None
+            length_desc = length_desc_for(length_label) if length_label else None
+            shot_desc = shot_desc_for(length_label) if length_label else None
             verdict = "Wicket hitting" if hit_stumps else "Wicket missing"
 
             return {
@@ -506,7 +530,9 @@ def serve():
                 "hit_stumps": hit_stumps,
                 "verdict": verdict,
                 "length_label": length_label,
+                "length_desc": length_desc,
                 "shot_advice": shot_advice,
+                "shot_desc": shot_desc,
             }
         finally:
             os.unlink(tmp_path)

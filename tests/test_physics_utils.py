@@ -15,6 +15,8 @@ from utils.physics_utils import (
     describe_bounce,
     classify_length,
     shot_advice_for,
+    length_desc_for,
+    shot_desc_for,
     auto_detect_pitch_corners,
     fallback_hit_stumps,
     fallback_bounce_text,
@@ -198,6 +200,20 @@ def test_shot_advice_for():
     print("shot_advice_for: OK")
 
 
+def test_length_and_shot_desc_for():
+    assert length_desc_for("Good Length") == "4-7m from stumps"
+    assert length_desc_for("Yorker") == "At the crease"
+    assert length_desc_for("Short Ball") == "7m+ from stumps"
+    assert length_desc_for("Full Length") == "2-4m from stumps"
+    assert length_desc_for(None) == ""
+    assert shot_desc_for("Good Length") == "Soft hands, straight bat"
+    assert shot_desc_for("Yorker") == "Jam down quickly, soft hands"
+    assert shot_desc_for("Short Ball") == "Watch ball, decide early"
+    assert shot_desc_for("Full Length") == "Front foot, swing through line"
+    assert shot_desc_for(None) == ""
+    print("length_desc_for + shot_desc_for: OK")
+
+
 if __name__ == "__main__":
     test_homography_round_trip()
     test_impact_hit()
@@ -210,4 +226,5 @@ if __name__ == "__main__":
     test_fallback_bounce_text()
     test_classify_length_buckets()
     test_shot_advice_for()
+    test_length_and_shot_desc_for()
     print("\nAll tests passed.")

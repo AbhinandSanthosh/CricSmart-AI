@@ -8,8 +8,44 @@ interface TrackingResult {
   hitStumps: boolean;
   verdict: string;          // "Wicket hitting" | "Wicket missing"
   lengthLabel: string;      // "Yorker" | "Full Length" | "Good Length" | "Short Ball" | ""
+  lengthDesc: string;       // small subtitle, e.g. "4-7m from stumps"
   shotAdvice: string;       // "Block or flick" | "Drive" | "Defend or leave" | "Pull or duck" | ""
+  shotDesc: string;         // small subtitle, e.g. "Soft hands, straight bat"
   errorNote?: string;
+}
+
+// Client-side fallbacks so users get useful copy even if the ML service is
+// running an older response shape. Mirrors LENGTH_DESC / SHOT_ADVICE / SHOT_DESC
+// on the server.
+const LENGTH_DESC: Record<string, string> = {
+  Yorker: "At the crease",
+  "Full Length": "2-4m from stumps",
+  "Good Length": "4-7m from stumps",
+  "Short Ball": "7m+ from stumps",
+};
+const SHOT_ADVICE: Record<string, string> = {
+  Yorker: "Block or flick",
+  "Full Length": "Drive",
+  "Good Length": "Defend or leave",
+  "Short Ball": "Pull or duck",
+};
+const SHOT_DESC: Record<string, string> = {
+  Yorker: "Jam down quickly, soft hands",
+  "Full Length": "Front foot, swing through line",
+  "Good Length": "Soft hands, straight bat",
+  "Short Ball": "Watch ball, decide early",
+};
+
+// If the ML service is on the older shape (no length_label, only bounce_text),
+// recover the length from the bounce sentence so users still see something.
+function lengthFromBounceText(s: unknown): string {
+  if (typeof s !== "string") return "";
+  const t = s.toLowerCase();
+  if (t.includes("yorker")) return "Yorker";
+  if (t.includes("full length")) return "Full Length";
+  if (t.includes("good length")) return "Good Length";
+  if (t.includes("short")) return "Short Ball";
+  return "";
 }
 
 function formatTime(s: number) {
@@ -255,12 +291,24 @@ export default function BallTrackingPage() {
             const data = await res.json();
             clearInterval(interval);
             setProgress(100);
+            // Resolve length: prefer the new field, otherwise parse the legacy
+            // bounce_text (older Modal deploys still emit that field).
+            const lenLabel: string =
+              data.length_label || lengthFromBounceText(data.bounce_text);
+            const shotAdvice: string =
+              data.shot_advice || SHOT_ADVICE[lenLabel] || "";
+            const lengthDesc: string =
+              data.length_desc || LENGTH_DESC[lenLabel] || "";
+            const shotDesc: string =
+              data.shot_desc || SHOT_DESC[lenLabel] || "";
             setResult({
               speed: data.speed_kmh || 0,
               hitStumps: !!data.hit_stumps,
               verdict: data.verdict || (data.hit_stumps ? "Wicket hitting" : "Wicket missing"),
-              lengthLabel: data.length_label || "",
-              shotAdvice: data.shot_advice || "",
+              lengthLabel: lenLabel,
+              lengthDesc,
+              shotAdvice,
+              shotDesc,
               errorNote: data.error || undefined,
             });
             setAnalyzing(false);
@@ -277,7 +325,9 @@ export default function BallTrackingPage() {
         hitStumps: false,
         verdict: "Wicket missing",
         lengthLabel: "Good Length",
+        lengthDesc: "4-7m from stumps",
         shotAdvice: "Defend or leave",
+        shotDesc: "Soft hands, straight bat",
       });
       setError("ML service not available - showing demo results.");
     } catch {
@@ -536,6 +586,11 @@ export default function BallTrackingPage() {
                     <div className="text-xl md:text-2xl font-extrabold text-[var(--text-main)]">
                       {result.lengthLabel || "-"}
                     </div>
+                    {result.lengthDesc && (
+                      <div className="text-[11px] text-[var(--text-muted)] mt-1.5">
+                        {result.lengthDesc}
+                      </div>
+                    )}
                     <div className="text-[11px] text-[var(--text-muted)] mt-2 uppercase tracking-wider">Length</div>
                   </div>
                   {/* Shot suggestion */}
@@ -543,6 +598,11 @@ export default function BallTrackingPage() {
                     <div className="text-base md:text-xl font-extrabold text-[#8b5cf6]">
                       {result.shotAdvice || "-"}
                     </div>
+                    {result.shotDesc && (
+                      <div className="text-[11px] text-[var(--text-muted)] mt-1.5 px-2">
+                        {result.shotDesc}
+                      </div>
+                    )}
                     <div className="text-[11px] text-[var(--text-muted)] mt-2 uppercase tracking-wider">Shot</div>
                   </div>
                 </div>
