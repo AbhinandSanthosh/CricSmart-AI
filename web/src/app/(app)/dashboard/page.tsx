@@ -74,7 +74,7 @@ export default function DashboardPage() {
           <span className="text-[var(--cs-accent)]">Training Hub</span>
         </h1>
         <p className="text-[var(--text-muted)] text-base leading-relaxed max-w-[540px] mb-6">
-          {user?.primary_role} &middot; {user?.skill_level} level. Track your biometrics, follow drills, and get AI coaching — all in one place.
+          {user?.primary_role} &middot; {user?.skill_level} level. Track your biometrics, follow drills, and get AI coaching - all in one place.
         </p>
         <div className="flex gap-3 flex-wrap">
           <Link href="/drills" className="btn btn-primary text-base no-underline">

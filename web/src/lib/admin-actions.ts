@@ -101,7 +101,7 @@ export async function deleteUserCascade(targetId: number, actorId: number): Prom
     if (remaining <= 1) throw new AdminActionError("Can't delete the only remaining admin.", 403);
   }
 
-  // Cascade — libsql batch runs in a single transaction.
+  // Cascade - libsql batch runs in a single transaction.
   await db.batch(
     [
       { sql: "DELETE FROM analyses WHERE user_id = ?", args: [targetId] },

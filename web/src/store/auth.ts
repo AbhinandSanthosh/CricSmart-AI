@@ -120,7 +120,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       const data = await res.json();
       set({ user: data.user, loading: false });
     } else {
-      // New Google user — create profile with defaults
+      // New Google user - create profile with defaults
       const profileRes = await fetch("/api/auth/signup", {
         method: "POST",
         headers: {
@@ -171,6 +171,6 @@ if (typeof auth.onAuthStateChanged === "function") {
     }
   });
 } else {
-  // Firebase not configured — mark as initialized so the app doesn't hang
+  // Firebase not configured - mark as initialized so the app doesn't hang
   useAuth.setState({ initialized: true, loading: false });
 }

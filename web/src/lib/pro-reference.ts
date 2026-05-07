@@ -29,7 +29,7 @@ export const PRO_PLAYERS: ProPlayer[] = [
     key: "sachin",
     name: "Sachin Tendulkar",
     style: "Textbook Classic",
-    description: "The master blaster's stance is considered the gold standard — perfectly balanced with a slight knee bend, level eyes, and compact guard.",
+    description: "The master blaster's stance is considered the gold standard - perfectly balanced with a slight knee bend, level eyes, and compact guard.",
     metrics: {
       "Knee Bend": { idealValue: "155°", numericRef: 155 },
       "Backlift": { idealValue: "Active", numericRef: 0 },
@@ -43,7 +43,7 @@ export const PRO_PLAYERS: ProPlayer[] = [
     key: "kohli",
     name: "Virat Kohli",
     style: "Aggressive Modern",
-    description: "Kohli's stance is dynamic and aggressive — deeper knee bend, slightly open chest, strong base for quick weight transfer into drives.",
+    description: "Kohli's stance is dynamic and aggressive - deeper knee bend, slightly open chest, strong base for quick weight transfer into drives.",
     metrics: {
       "Knee Bend": { idealValue: "145°", numericRef: 145 },
       "Backlift": { idealValue: "High & Active", numericRef: 0 },
@@ -57,7 +57,7 @@ export const PRO_PLAYERS: ProPlayer[] = [
     key: "dravid",
     name: "Rahul Dravid",
     style: "Defensive Wall",
-    description: "The Wall's stance prioritizes stability and patience — minimal movement, perfectly still head, compact and ready to defend for hours.",
+    description: "The Wall's stance prioritizes stability and patience - minimal movement, perfectly still head, compact and ready to defend for hours.",
     metrics: {
       "Knee Bend": { idealValue: "160°", numericRef: 160 },
       "Backlift": { idealValue: "Compact", numericRef: 0 },
@@ -100,11 +100,11 @@ export function compareWithPro(result: AnalysisResult, proKey: string): Comparis
             gap: diff,
             tip: userAngle > proMetric.numericRef
               ? `Bend your knees slightly more to match ${pro.name}'s ${proMetric.idealValue} angle`
-              : `Straighten up a bit — ${pro.name} uses a ${proMetric.idealValue} knee angle`,
+              : `Straighten up a bit - ${pro.name} uses a ${proMetric.idealValue} knee angle`,
           });
         }
       } else {
-        difference = "—";
+        difference = "-";
       }
     } else {
       // For non-angle metrics, compare by status
@@ -157,11 +157,11 @@ export function compareWithPro(result: AnalysisResult, proKey: string): Comparis
 
 function getTipForMetric(metric: string, proName: string): string {
   const tips: Record<string, string> = {
-    "Backlift": `Study ${proName}'s backlift position — keep your bat ready and in line with the stumps`,
-    "Head & Eyes Level": `${proName} keeps their head dead still at the crease — practice watching the ball with minimal head movement`,
-    "Balance": `Work on your weight distribution — ${proName}'s center of gravity stays perfectly between both feet`,
-    "Shoulder Position": `${proName} keeps shoulders level and aligned — practice in front of a mirror to correct tilt`,
-    "Foot Spacing": `Adjust your base width — ${proName} uses a specific stance width for optimal stability and shot-making`,
+    "Backlift": `Study ${proName}'s backlift position - keep your bat ready and in line with the stumps`,
+    "Head & Eyes Level": `${proName} keeps their head dead still at the crease - practice watching the ball with minimal head movement`,
+    "Balance": `Work on your weight distribution - ${proName}'s center of gravity stays perfectly between both feet`,
+    "Shoulder Position": `${proName} keeps shoulders level and aligned - practice in front of a mirror to correct tilt`,
+    "Foot Spacing": `Adjust your base width - ${proName} uses a specific stance width for optimal stability and shot-making`,
   };
   return tips[metric] || `Focus on improving your ${metric.toLowerCase()} to match ${proName}'s technique`;
 }

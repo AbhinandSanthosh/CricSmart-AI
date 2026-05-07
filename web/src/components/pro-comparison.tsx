@@ -62,7 +62,7 @@ export function ProComparison({ result }: Props) {
         <div className="flex items-center justify-between mb-1">
           <div>
             <span className="text-base font-bold text-[var(--text-main)]">{comparison.pro.name}</span>
-            <span className="text-sm text-[var(--text-muted)] ml-2">— {comparison.pro.style}</span>
+            <span className="text-sm text-[var(--text-muted)] ml-2">- {comparison.pro.style}</span>
           </div>
           <div className="stat-val text-2xl" style={{ color: comparison.matchPercentage >= 70 ? "#22c55e" : comparison.matchPercentage >= 40 ? "#f59e0b" : "var(--cs-danger)" }}>
             {comparison.matchPercentage}%

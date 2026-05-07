@@ -68,7 +68,7 @@ export default function AdminCoachPage() {
       <div className="mb-5">
         <h1 className="text-3xl font-bold text-[var(--text-main)] tracking-tight">AI Coach Prompt</h1>
         <p className="text-sm text-[var(--text-muted)] mt-1">
-          {meta.is_default ? "Currently using the default prompt." : `Custom prompt — last updated ${meta.updated_at || "—"}`}
+          {meta.is_default ? "Currently using the default prompt." : `Custom prompt - last updated ${meta.updated_at || "-"}`}
         </p>
       </div>
 

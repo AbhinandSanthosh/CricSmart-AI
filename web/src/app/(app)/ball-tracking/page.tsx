@@ -279,7 +279,7 @@ export default function BallTrackingPage() {
         lengthLabel: "Good Length",
         shotAdvice: "Defend or leave",
       });
-      setError("ML service not available — showing demo results.");
+      setError("ML service not available - showing demo results.");
     } catch {
       setError("Analysis failed. Please try again.");
     } finally {
@@ -320,7 +320,7 @@ export default function BallTrackingPage() {
           Ball Tracking
         </h1>
         <p className="text-[var(--text-muted)] text-base mt-2">
-          Upload or record a cricket video — see ball speed, where it pitched, and whether it would hit the stumps
+          Upload or record a cricket video - see ball speed, where it pitched, and whether it would hit the stumps
         </p>
       </div>
 
@@ -330,7 +330,7 @@ export default function BallTrackingPage() {
           <div className="panel col-span-12 p-12 cursor-pointer text-center border-dashed" onClick={() => fileInputRef.current?.click()}>
             <Upload className="w-14 h-14 text-[var(--cs-accent)] mx-auto mb-4" />
             <h3 className="text-[22px] mb-2">Upload Video</h3>
-            <p className="text-[var(--text-muted)] text-sm">MP4, MOV, or AVI — max 50MB</p>
+            <p className="text-[var(--text-muted)] text-sm">MP4, MOV, or AVI - max 50MB</p>
           </div>
           <div className="panel col-span-12 p-12 cursor-pointer text-center" onClick={startLiveCapture}>
             <Video className="w-14 h-14 text-[#8b5cf6] mx-auto mb-4" />
@@ -506,7 +506,7 @@ export default function BallTrackingPage() {
             )}
           </div>
 
-          {/* Results — four terse cards: Speed | Wicket | Length | Shot */}
+          {/* Results - four terse cards: Speed | Wicket | Length | Shot */}
           {result && (
             <>
               <div ref={resultAnchorRef} className="col-span-12" aria-hidden />
@@ -534,14 +534,14 @@ export default function BallTrackingPage() {
                   {/* Length */}
                   <div className="text-center p-6 bg-[var(--bg-surface)] rounded-2xl border border-[var(--cs-border)] flex flex-col items-center justify-center">
                     <div className="text-xl md:text-2xl font-extrabold text-[var(--text-main)]">
-                      {result.lengthLabel || "—"}
+                      {result.lengthLabel || "-"}
                     </div>
                     <div className="text-[11px] text-[var(--text-muted)] mt-2 uppercase tracking-wider">Length</div>
                   </div>
                   {/* Shot suggestion */}
                   <div className="text-center p-6 bg-[var(--bg-surface)] rounded-2xl border border-[var(--cs-border)] flex flex-col items-center justify-center">
                     <div className="text-base md:text-xl font-extrabold text-[#8b5cf6]">
-                      {result.shotAdvice || "—"}
+                      {result.shotAdvice || "-"}
                     </div>
                     <div className="text-[11px] text-[var(--text-muted)] mt-2 uppercase tracking-wider">Shot</div>
                   </div>

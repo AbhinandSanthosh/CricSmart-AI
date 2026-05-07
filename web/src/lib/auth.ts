@@ -48,7 +48,7 @@ export async function verifyToken(authHeader: string | null) {
 
 /**
  * Get the user profile from the database by Firebase UID.
- * Returns null if the user is deactivated — callers treat this as auth failure.
+ * Returns null if the user is deactivated - callers treat this as auth failure.
  */
 export async function getUserByUid(uid: string): Promise<User | null> {
   const db = await ensureDb();
@@ -123,7 +123,7 @@ function getAdminEmails(): string[] {
  * Check if a user has admin access.
  *
  * DB-first: `users.is_admin` is the source of truth. ADMIN_EMAILS is a
- * bootstrap mechanism only — if a matching email exists in users with
+ * bootstrap mechanism only - if a matching email exists in users with
  * is_admin=0, we promote them once. After that, admins can be promoted
  * or demoted via the admin panel without conflict.
  *

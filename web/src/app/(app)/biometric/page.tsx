@@ -232,7 +232,7 @@ export default function BiometricPage() {
         rejected: selection.rejected,
       });
       if (!selection.landmarks) {
-        setError(`Couldn't find a batter in this photo — ${selection.reason}. Try a photo where the batter is clearly in their stance.`);
+        setError(`Couldn't find a batter in this photo - ${selection.reason}. Try a photo where the batter is clearly in their stance.`);
         setAnalyzing(false);
         poseLandmarker.close();
         return;
@@ -302,7 +302,7 @@ export default function BiometricPage() {
         <p className="label-bracket mb-3">Pose Detection</p>
         <h1 className="text-4xl font-bold text-[var(--text-main)] tracking-tight">Stance Lab</h1>
         <p className="text-[var(--text-muted)] text-base mt-2">
-          AI-powered batting stance analysis — compared against Sachin, Dravid &amp; Kohli
+          AI-powered batting stance analysis - compared against Sachin, Dravid &amp; Kohli
         </p>
       </div>
 
@@ -315,7 +315,7 @@ export default function BiometricPage() {
           >
             <Upload className="w-12 h-12 text-[var(--cs-accent)] mx-auto mb-4" />
             <h3 className="text-lg font-bold text-[var(--text-main)] mb-2">Upload Photo</h3>
-            <p className="text-sm text-[var(--text-muted)]">JPG or PNG — full-body batting stance, good lighting</p>
+            <p className="text-sm text-[var(--text-muted)]">JPG or PNG - full-body batting stance, good lighting</p>
           </div>
           <div
             className="panel col-span-12 p-10 cursor-pointer text-center hover:border-[var(--cs-accent)] transition-colors"
@@ -323,7 +323,7 @@ export default function BiometricPage() {
           >
             <Camera className="w-12 h-12 text-purple-500 mx-auto mb-4" />
             <h3 className="text-lg font-bold text-[var(--text-main)] mb-2">Live Capture</h3>
-            <p className="text-sm text-[var(--text-muted)]">Use your camera to take a stance photo — rear camera recommended</p>
+            <p className="text-sm text-[var(--text-muted)]">Use your camera to take a stance photo - rear camera recommended</p>
           </div>
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
         </>

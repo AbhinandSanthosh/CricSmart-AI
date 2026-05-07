@@ -122,7 +122,7 @@ async function initDb(client: Client) {
     );
   `);
 
-  // Additive column on users — SQLite has no IF NOT EXISTS for ADD COLUMN.
+  // Additive column on users - SQLite has no IF NOT EXISTS for ADD COLUMN.
   try {
     await client.execute("ALTER TABLE users ADD COLUMN deactivated_at TEXT");
   } catch {

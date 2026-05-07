@@ -100,7 +100,7 @@ export function scoreBatsmanCandidate(landmarks: Landmark[]): BatsmanScore {
   }
 
   // Soft visibility check: if MORE than half of the core landmarks are very
-  // weakly detected (vis < 0.1), the person isn't really in frame — they're a
+  // weakly detected (vis < 0.1), the person isn't really in frame - they're a
   // background figure or a partial detection. Single low-visibility joints are
   // normal in side-on stances and must not reject the candidate.
   const veryWeak = required.filter((idx) => landmarks[idx].visibility < 0.1).length;
@@ -133,7 +133,7 @@ export function scoreBatsmanCandidate(landmarks: Landmark[]): BatsmanScore {
 
   // ----- DISQUALIFIERS -----
 
-  // 1. Wicketkeeper crouch — knees deeply bent (< 135°) AND hips barely above knees.
+  // 1. Wicketkeeper crouch - knees deeply bent (< 135°) AND hips barely above knees.
   //    The keeper's torso is compact: hips fold down over knees so the vertical
   //    distance from hip to knee is small relative to body height.
   const leftHipToKneeY = Math.abs(landmarks[LEFT_HIP].y - landmarks[LEFT_KNEE].y);
@@ -148,7 +148,7 @@ export function scoreBatsmanCandidate(landmarks: Landmark[]): BatsmanScore {
     };
   }
 
-  // 2. Bowler mid-delivery — the bowling arm is raised well above the head.
+  // 2. Bowler mid-delivery - the bowling arm is raised well above the head.
   //    A batter in their stance never has wrists more than ~1 torso above shoulders.
   if (topWristRel > 1.6) {
     return {
@@ -159,7 +159,7 @@ export function scoreBatsmanCandidate(landmarks: Landmark[]): BatsmanScore {
     };
   }
 
-  // 3. Bowler gather/leap — feet vertically separated (mid-stride / airborne)
+  // 3. Bowler gather/leap - feet vertically separated (mid-stride / airborne)
   //    AND one knee nearly straight (driving leg). Batters stand level on both feet.
   if (ankleGapY / bodyHeight > 0.12 && maxKnee > 165) {
     return {
@@ -170,7 +170,7 @@ export function scoreBatsmanCandidate(landmarks: Landmark[]): BatsmanScore {
     };
   }
 
-  // 4. Wide stride (delivery stride / lunge) — feet spread more than 3× shoulder width.
+  // 4. Wide stride (delivery stride / lunge) - feet spread more than 3× shoulder width.
   if (footToShoulder > 3.0) {
     return {
       score: 0,
@@ -180,7 +180,7 @@ export function scoreBatsmanCandidate(landmarks: Landmark[]): BatsmanScore {
     };
   }
 
-  // 5. Body span too small — person is too far away / cropped.
+  // 5. Body span too small - person is too far away / cropped.
   //    Can't reliably measure a stance.
   if (bodyHeight < 0.18) {
     return {
@@ -191,7 +191,7 @@ export function scoreBatsmanCandidate(landmarks: Landmark[]): BatsmanScore {
     };
   }
 
-  // 6. Upside-down / non-standing — shoulders should be above hips which should
+  // 6. Upside-down / non-standing - shoulders should be above hips which should
   //    be above ankles (remember: y grows downward in image space).
   if (!(midShoulderY < midHipY - 0.02 && midHipY < midAnkleY - 0.02)) {
     return {
@@ -212,7 +212,7 @@ export function scoreBatsmanCandidate(landmarks: Landmark[]): BatsmanScore {
   // collapses to ~0 and any ratio against it explodes. Earlier versions used
   // shoulder width and falsely rejected side-on batters with grounded bats
   // (the most common batting photo composition!). Torso height (vertical
-  // shoulder→hip distance) is rotation-invariant — it stays roughly constant
+  // shoulder→hip distance) is rotation-invariant - it stays roughly constant
   // regardless of camera angle.
   //
   // The grip check works in any view (side-on, 3/4, front-on) and any bat
@@ -231,7 +231,7 @@ export function scoreBatsmanCandidate(landmarks: Landmark[]): BatsmanScore {
     };
   }
 
-  // Wider "batting range" for the wrists — covers grounded bats (wrists at
+  // Wider "batting range" for the wrists - covers grounded bats (wrists at
   // hip level) all the way up to active backlifts (wrists above head). Used
   // for positive scoring below; not a hard gate.
   const wristsInBatterRange = topWristRel > -1.3 && topWristRel < 1.8;
@@ -239,7 +239,7 @@ export function scoreBatsmanCandidate(landmarks: Landmark[]): BatsmanScore {
   // ----- POSITIVE SCORING (out of 100) -----
   let score = 0;
 
-  // (a) Upright knees in batter range 140-178° — batters have a slight bend, not a crouch.
+  // (a) Upright knees in batter range 140-178° - batters have a slight bend, not a crouch.
   if (minKnee >= 140 && minKnee <= 178) {
     score += 25;
     reasons.push(`upright knees (${minKnee.toFixed(0)}°)`);
@@ -248,13 +248,13 @@ export function scoreBatsmanCandidate(landmarks: Landmark[]): BatsmanScore {
     reasons.push(`slight crouch knees (${minKnee.toFixed(0)}°)`);
   }
 
-  // (b) Wrists in batter range — above waist but not above head.
+  // (b) Wrists in batter range - above waist but not above head.
   if (wristsInBatterRange) {
     score += 20;
     reasons.push(`wrists in batter range (${topWristRel.toFixed(2)})`);
   }
 
-  // (c) Two-handed grip — the wrists are close together (both on the bat).
+  // (c) Two-handed grip - the wrists are close together (both on the bat).
   // Bonus for a TIGHT grip (wrists very close), normal for a regular grip.
   if (wristGapToTorso < 0.25) {
     score += 20;
@@ -264,13 +264,13 @@ export function scoreBatsmanCandidate(landmarks: Landmark[]): BatsmanScore {
     reasons.push(`two-handed grip (${wristGapToTorso.toFixed(2)})`);
   }
 
-  // (d) Feet shoulder-width apart (0.6-2.4× shoulder width) — a proper batting base.
+  // (d) Feet shoulder-width apart (0.6-2.4× shoulder width) - a proper batting base.
   if (footToShoulder >= 0.6 && footToShoulder <= 2.4) {
     score += 15;
     reasons.push(`shoulder-width feet (${footToShoulder.toFixed(2)})`);
   }
 
-  // (e) Body mostly vertical — head above shoulders above hips above ankles.
+  // (e) Body mostly vertical - head above shoulders above hips above ankles.
   const nose = landmarks[NOSE];
   if (nose.y < midShoulderY - 0.02) {
     score += 10;
@@ -300,7 +300,7 @@ export interface BatsmanSelection {
   rejected: { index: number; reason: string }[];
 }
 
-// Human-friendly names for each disqualifier — used in user-facing error text.
+// Human-friendly names for each disqualifier - used in user-facing error text.
 const DISQUALIFIER_LABELS: Record<string, string> = {
   missing_landmarks: "an incomplete pose",
   not_in_frame: "a partial figure in the background",
@@ -346,7 +346,7 @@ export function selectBatsman(candidates: Landmark[][]): BatsmanSelection {
       const label = DISQUALIFIER_LABELS[best.disqualifier || ""] || "something other than a batter";
       reason = `closest pose looked like ${label}`;
     } else {
-      reason = `closest pose didn't look like a batting stance (score ${best.score}/100 — ${best.reasons.join(", ") || "no batter signals"})`;
+      reason = `closest pose didn't look like a batting stance (score ${best.score}/100 - ${best.reasons.join(", ") || "no batter signals"})`;
     }
     return { index: -1, landmarks: null, score: best.score, reason, rejected };
   }
@@ -365,11 +365,11 @@ export function selectBatsman(candidates: Landmark[][]): BatsmanSelection {
 // Pro reference ranges (based on analysis of professional stances)
 const PRO_RANGES = {
   kneeAngle: { min: 150, max: 170, label: "Sachin & Kohli keep a slight knee bend (150-170°) for quick movement" },
-  elbowAngle: { min: 90, max: 160, label: "Dravid's backlift — elbow high, bat face open, wrists cocked" },
-  headOffset: { max: 0.06, label: "Kohli keeps his head dead still over middle stump — eyes level" },
-  shoulderDiff: { max: 0.03, label: "Sachin's side-on stance — shoulders level, pointing to bowler" },
-  eyeLevel: { max: 0.015, label: "Dravid's eyes are always perfectly level — watch the ball all the way" },
-  backliftAngle: { min: 100, max: 160, label: "Kohli's compact backlift — bat comes from gully, wrists above shoulder" },
+  elbowAngle: { min: 90, max: 160, label: "Dravid's backlift - elbow high, bat face open, wrists cocked" },
+  headOffset: { max: 0.06, label: "Kohli keeps his head dead still over middle stump - eyes level" },
+  shoulderDiff: { max: 0.03, label: "Sachin's side-on stance - shoulders level, pointing to bowler" },
+  eyeLevel: { max: 0.015, label: "Dravid's eyes are always perfectly level - watch the ball all the way" },
+  backliftAngle: { min: 100, max: 160, label: "Kohli's compact backlift - bat comes from gully, wrists above shoulder" },
 };
 
 export function analyzeStance(landmarks: Landmark[]): AnalysisResult {
@@ -382,15 +382,15 @@ export function analyzeStance(landmarks: Landmark[]): AnalysisResult {
   const backKneeAngle = Math.min(leftKneeAngle, rightKneeAngle);
 
   if (backKneeAngle >= 150 && backKneeAngle <= 170) {
-    metrics.push({ name: "Knee Bend", value: `${backKneeAngle.toFixed(0)}°`, status: "good", feedback: "Your knees are nicely bent — you're in an athletic ready position, just like the pros.", tip: PRO_RANGES.kneeAngle.label, deduction: 0 });
+    metrics.push({ name: "Knee Bend", value: `${backKneeAngle.toFixed(0)}°`, status: "good", feedback: "Your knees are nicely bent - you're in an athletic ready position, just like the pros.", tip: PRO_RANGES.kneeAngle.label, deduction: 0 });
   } else if (backKneeAngle > 170) {
     const ded = 25;
     totalDeduction += ded;
-    metrics.push({ name: "Knee Bend", value: `${backKneeAngle.toFixed(0)}°`, status: "critical", feedback: "Your legs are too stiff and straight. You won't be able to move quickly to short or full deliveries.", tip: "Bend your knees slightly — imagine sitting on a high stool. " + PRO_RANGES.kneeAngle.label, deduction: ded });
+    metrics.push({ name: "Knee Bend", value: `${backKneeAngle.toFixed(0)}°`, status: "critical", feedback: "Your legs are too stiff and straight. You won't be able to move quickly to short or full deliveries.", tip: "Bend your knees slightly - imagine sitting on a high stool. " + PRO_RANGES.kneeAngle.label, deduction: ded });
   } else if (backKneeAngle < 130) {
     const ded = 15;
     totalDeduction += ded;
-    metrics.push({ name: "Knee Bend", value: `${backKneeAngle.toFixed(0)}°`, status: "warning", feedback: "You're crouching too low. This will tire your legs and slow your reaction time.", tip: "Stand a bit taller — your knees should be soft, not deeply bent.", deduction: ded });
+    metrics.push({ name: "Knee Bend", value: `${backKneeAngle.toFixed(0)}°`, status: "warning", feedback: "You're crouching too low. This will tire your legs and slow your reaction time.", tip: "Stand a bit taller - your knees should be soft, not deeply bent.", deduction: ded });
   } else {
     const ded = 8;
     totalDeduction += ded;
@@ -413,30 +413,30 @@ export function analyzeStance(landmarks: Landmark[]): AnalysisResult {
   const rightElbowAngle = angleBetween(landmarks[RIGHT_SHOULDER], landmarks[RIGHT_ELBOW], landmarks[RIGHT_WRIST]);
   const topElbowAngle = Math.max(leftElbowAngle, rightElbowAngle);
 
-  // Classify backlift position — only two valid states:
+  // Classify backlift position - only two valid states:
   // - active: wrists clearly above shoulders (bat lifted high and cocked)
   // - ready: anything else that's a normal batting stance (bat at any position from
   //   shoulder-level down to grounded, including Kohli/Dravid/Smith tap style).
   // MediaPipe cannot see the bat itself, so we shouldn't penalize a grounded bat.
-  // Every natural batting stance is valid — we only recognize "active" vs "ready".
+  // Every natural batting stance is valid - we only recognize "active" vs "ready".
   const activeBacklift = topWristRel > 0.15 && topElbowAngle >= 85;
 
   if (activeBacklift) {
-    metrics.push({ name: "Backlift", value: `${topElbowAngle.toFixed(0)}°`, status: "good", feedback: "Excellent active backlift! Your bat is raised and ready — you'll generate great power through the shot.", tip: PRO_RANGES.backliftAngle.label, deduction: 0 });
+    metrics.push({ name: "Backlift", value: `${topElbowAngle.toFixed(0)}°`, status: "good", feedback: "Excellent active backlift! Your bat is raised and ready - you'll generate great power through the shot.", tip: PRO_RANGES.backliftAngle.label, deduction: 0 });
   } else {
-    // Ready position — bat grounded, tapped, or held low pre-delivery.
+    // Ready position - bat grounded, tapped, or held low pre-delivery.
     // This is a valid professional technique (Kohli, Dravid, Smith). Zero deduction.
     metrics.push({
       name: "Backlift",
       value: "Ready position",
       status: "good",
-      feedback: "Bat in ready position — classic pre-delivery stance like Kohli, Dravid, and Steve Smith. Your backlift will come up smoothly as the bowler runs in.",
+      feedback: "Bat in ready position - classic pre-delivery stance like Kohli, Dravid, and Steve Smith. Your backlift will come up smoothly as the bowler runs in.",
       tip: "Pro tip: grounded bat is perfectly fine pre-delivery. Focus on a straight, controlled backlift when the bowler loads up.",
       deduction: 0,
     });
   }
 
-  // 3. Head & Eye Level (CRITICAL — eyes must be parallel/level)
+  // 3. Head & Eye Level (CRITICAL - eyes must be parallel/level)
   const leftEye = landmarks[LEFT_EYE];
   const rightEye = landmarks[RIGHT_EYE];
   const eyeTilt = Math.abs(leftEye.y - rightEye.y);
@@ -449,18 +449,18 @@ export function analyzeStance(landmarks: Landmark[]): AnalysisResult {
   const headTilt = Math.max(eyeTilt, earTilt);
 
   if (headTilt < 0.015) {
-    metrics.push({ name: "Head & Eyes Level", value: "Level", status: "good", feedback: "Your head is perfectly still and eyes are level — this gives you the best view of the ball from the bowler's hand.", tip: PRO_RANGES.eyeLevel.label, deduction: 0 });
+    metrics.push({ name: "Head & Eyes Level", value: "Level", status: "good", feedback: "Your head is perfectly still and eyes are level - this gives you the best view of the ball from the bowler's hand.", tip: PRO_RANGES.eyeLevel.label, deduction: 0 });
   } else if (headTilt < 0.03) {
     const ded = 10;
     totalDeduction += ded;
-    metrics.push({ name: "Head & Eyes Level", value: "Slight tilt", status: "warning", feedback: "Your head is slightly tilted. Even a small tilt changes how you see the ball — it makes judging length harder.", tip: "Keep your chin level and both eyes at the same height. Imagine a spirit level across your eyes.", deduction: ded });
+    metrics.push({ name: "Head & Eyes Level", value: "Slight tilt", status: "warning", feedback: "Your head is slightly tilted. Even a small tilt changes how you see the ball - it makes judging length harder.", tip: "Keep your chin level and both eyes at the same height. Imagine a spirit level across your eyes.", deduction: ded });
   } else {
     const ded = 20;
     totalDeduction += ded;
     metrics.push({ name: "Head & Eyes Level", value: "Tilted", status: "critical", feedback: "Your head is significantly tilted! You're seeing the ball at an angle, which makes it very hard to judge line and length accurately.", tip: "This is the #1 thing to fix. " + PRO_RANGES.eyeLevel.label, deduction: ded });
   }
 
-  // 4. Balance — Hip stability over feet base (NOT head over feet)
+  // 4. Balance - Hip stability over feet base (NOT head over feet)
   // In a proper side-on cricket stance, the batsman leans FORWARD over the front foot,
   // so the head (nose) is naturally offset from the foot center. The real measure of
   // balance is whether the HIPS (center of mass) are stable over the feet, and whether
@@ -473,19 +473,19 @@ export function analyzeStance(landmarks: Landmark[]): AnalysisResult {
   };
   const hipCenterX = (landmarks[LEFT_HIP].x + landmarks[RIGHT_HIP].x) / 2;
   const shoulderY = (landmarks[LEFT_SHOULDER].y + landmarks[RIGHT_SHOULDER].y) / 2;
-  // Body height (shoulders to ankles) — used as scale reference so the metric is
+  // Body height (shoulders to ankles) - used as scale reference so the metric is
   // invariant to how zoomed-in the image is.
   const bodyHeight = Math.abs(midFoot.y - shoulderY) || 0.5;
 
-  // Hip offset from feet — hips should be nearly vertically above feet (core stability)
+  // Hip offset from feet - hips should be nearly vertically above feet (core stability)
   const hipLean = Math.abs(hipCenterX - midFoot.x) / bodyHeight;
-  // Head offset from hips — head can lean forward in a cricket stance, so this is lenient
+  // Head offset from hips - head can lean forward in a cricket stance, so this is lenient
   const headLean = Math.abs(nose.x - hipCenterX) / bodyHeight;
   // Combined: hip stability matters most (70%), head forward-lean is secondary (30%)
   const combinedLean = 0.7 * hipLean + 0.3 * headLean;
 
   if (combinedLean < 0.28) {
-    metrics.push({ name: "Balance", value: "Centered", status: "good", feedback: "Your weight is evenly distributed and hips are stable over your base — great balance for playing any shot.", tip: PRO_RANGES.headOffset.label, deduction: 0 });
+    metrics.push({ name: "Balance", value: "Centered", status: "good", feedback: "Your weight is evenly distributed and hips are stable over your base - great balance for playing any shot.", tip: PRO_RANGES.headOffset.label, deduction: 0 });
   } else if (combinedLean < 0.45) {
     const ded = 6;
     totalDeduction += ded;
@@ -493,14 +493,14 @@ export function analyzeStance(landmarks: Landmark[]): AnalysisResult {
   } else {
     const ded = 12;
     totalDeduction += ded;
-    metrics.push({ name: "Balance", value: "Off-balance", status: "critical", feedback: "You're significantly off-balance — hips are not stable over your feet. This makes it very hard to play straight.", tip: "Reset your stance. " + PRO_RANGES.headOffset.label, deduction: ded });
+    metrics.push({ name: "Balance", value: "Off-balance", status: "critical", feedback: "You're significantly off-balance - hips are not stable over your feet. This makes it very hard to play straight.", tip: "Reset your stance. " + PRO_RANGES.headOffset.label, deduction: ded });
   }
 
   // 5. Shoulder Alignment (side-on vs chest-on)
   const shoulderDiff = Math.abs(landmarks[LEFT_SHOULDER].y - landmarks[RIGHT_SHOULDER].y);
 
   if (shoulderDiff < 0.03) {
-    metrics.push({ name: "Shoulder Position", value: "Side-on", status: "good", feedback: "Shoulders nicely aligned — good side-on position facing the bowler.", tip: PRO_RANGES.shoulderDiff.label, deduction: 0 });
+    metrics.push({ name: "Shoulder Position", value: "Side-on", status: "good", feedback: "Shoulders nicely aligned - good side-on position facing the bowler.", tip: PRO_RANGES.shoulderDiff.label, deduction: 0 });
   } else if (shoulderDiff < 0.06) {
     const ded = 8;
     totalDeduction += ded;
@@ -508,7 +508,7 @@ export function analyzeStance(landmarks: Landmark[]): AnalysisResult {
   } else {
     const ded = 15;
     totalDeduction += ded;
-    metrics.push({ name: "Shoulder Position", value: "Too open", status: "critical", feedback: "Your chest is facing the bowler too much. This is a chest-on stance — you'll struggle to play straight drives.", tip: "Rotate your upper body so your front shoulder leads. " + PRO_RANGES.shoulderDiff.label, deduction: ded });
+    metrics.push({ name: "Shoulder Position", value: "Too open", status: "critical", feedback: "Your chest is facing the bowler too much. This is a chest-on stance - you'll struggle to play straight drives.", tip: "Rotate your upper body so your front shoulder leads. " + PRO_RANGES.shoulderDiff.label, deduction: ded });
   }
 
   // 6. Foot Spacing
@@ -517,7 +517,7 @@ export function analyzeStance(landmarks: Landmark[]): AnalysisResult {
   const footToShoulder = footDist / (shoulderDist || 0.001);
 
   if (footToShoulder >= 0.8 && footToShoulder <= 1.5) {
-    metrics.push({ name: "Foot Spacing", value: "Good width", status: "good", feedback: "Your feet are shoulder-width apart — a stable base that allows quick movement in any direction.", tip: "Perfect spacing. Sachin kept his feet just outside shoulder width for stability.", deduction: 0 });
+    metrics.push({ name: "Foot Spacing", value: "Good width", status: "good", feedback: "Your feet are shoulder-width apart - a stable base that allows quick movement in any direction.", tip: "Perfect spacing. Sachin kept his feet just outside shoulder width for stability.", deduction: 0 });
   } else if (footToShoulder < 0.8) {
     const ded = 10;
     totalDeduction += ded;
@@ -525,7 +525,7 @@ export function analyzeStance(landmarks: Landmark[]): AnalysisResult {
   } else {
     const ded = 12;
     totalDeduction += ded;
-    metrics.push({ name: "Foot Spacing", value: "Too wide", status: "critical", feedback: "Your stance is too wide. You'll struggle to move your feet quickly to the ball.", tip: "Bring your feet closer — about shoulder-width. Too wide = slow feet.", deduction: ded });
+    metrics.push({ name: "Foot Spacing", value: "Too wide", status: "critical", feedback: "Your stance is too wide. You'll struggle to move your feet quickly to the ball.", tip: "Bring your feet closer - about shoulder-width. Too wide = slow feet.", deduction: ded });
   }
 
   const score = Math.max(0, Math.min(100, 100 - totalDeduction));
@@ -533,25 +533,25 @@ export function analyzeStance(landmarks: Landmark[]): AnalysisResult {
   // Pro comparison summary
   let proComparison: string;
   if (score >= 85) {
-    proComparison = "Your stance mirrors the fundamentals of Sachin Tendulkar — balanced, compact, and ready. Keep it up!";
+    proComparison = "Your stance mirrors the fundamentals of Sachin Tendulkar - balanced, compact, and ready. Keep it up!";
   } else if (score >= 70) {
-    proComparison = "Good foundation. Virat Kohli's secret is his still head and level eyes — focus on those areas to go from good to great.";
+    proComparison = "Good foundation. Virat Kohli's secret is his still head and level eyes - focus on those areas to go from good to great.";
   } else if (score >= 50) {
-    proComparison = "You've got the basics. Study Rahul Dravid's stance — perfectly still head, level eyes, weight on the balls of his feet. That's your target.";
+    proComparison = "You've got the basics. Study Rahul Dravid's stance - perfectly still head, level eyes, weight on the balls of his feet. That's your target.";
   } else {
-    proComparison = "Start with the basics: watch how Sachin sets up — bent knees, still head, eyes level, bat raised. Build from there one metric at a time.";
+    proComparison = "Start with the basics: watch how Sachin sets up - bent knees, still head, eyes level, bat raised. Build from there one metric at a time.";
   }
 
   let summary: string;
   if (score >= 85) summary = "Excellent stance! You're match-ready with only minor adjustments needed.";
   else if (score >= 70) summary = "Good base. Fix the highlighted areas and you'll see immediate improvement at the crease.";
-  else if (score >= 50) summary = "Decent start. Focus on the red/orange items during practice — especially head position.";
+  else if (score >= 50) summary = "Decent start. Focus on the red/orange items during practice - especially head position.";
   else summary = "Needs work. Prioritize: 1) Head & eyes level, 2) Knee bend, 3) Balance. One at a time.";
 
   return { score, metrics, summary, proComparison };
 }
 
-// Skeleton connections for drawing — grouped by body region for colored rendering
+// Skeleton connections for drawing - grouped by body region for colored rendering
 export const POSE_CONNECTIONS: [number, number][] = [
   // Torso
   [LEFT_SHOULDER, RIGHT_SHOULDER],

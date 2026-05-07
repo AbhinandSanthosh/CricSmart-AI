@@ -65,11 +65,11 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-        <StatCard label="Total users" value={stats ? stats.total_users : "—"} sub={stats ? `${stats.active_users} active` : ""} />
-        <StatCard label="Admins" value={stats ? stats.admins : "—"} sub="active accounts" />
-        <StatCard label="Drills" value={stats ? stats.drills : "—"} sub="in library" />
-        <StatCard label="Services up" value={stats ? `${stats.services_up}/${stats.services_total}` : "—"} sub="external APIs" />
-        <StatCard label="Banner" value={stats ? (stats.banner_active ? "ON" : "OFF") : "—"} sub="platform-wide" />
+        <StatCard label="Total users" value={stats ? stats.total_users : "-"} sub={stats ? `${stats.active_users} active` : ""} />
+        <StatCard label="Admins" value={stats ? stats.admins : "-"} sub="active accounts" />
+        <StatCard label="Drills" value={stats ? stats.drills : "-"} sub="in library" />
+        <StatCard label="Services up" value={stats ? `${stats.services_up}/${stats.services_total}` : "-"} sub="external APIs" />
+        <StatCard label="Banner" value={stats ? (stats.banner_active ? "ON" : "OFF") : "-"} sub="platform-wide" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

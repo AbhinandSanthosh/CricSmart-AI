@@ -70,7 +70,7 @@ export default function AdminHealthPage() {
                     Latency: <span className="font-bold text-[var(--text-main)]">{s.latencyMs}ms</span>
                   </span>
                 ) : (
-                  <span>—</span>
+                  <span>-</span>
                 )}
               </div>
               {s.detail && <div className="text-xs text-[var(--text-muted)] mt-2 break-words">{s.detail}</div>}
