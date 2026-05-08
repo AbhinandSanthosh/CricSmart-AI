@@ -103,6 +103,22 @@ export default function BallTrackingPage() {
   // Anchor the result section so we can scroll into it on mobile after analyze
   const resultAnchorRef = useRef<HTMLDivElement>(null);
 
+  // Diagnostic from /api/ml-health - shown inline under the error banner so
+  // the user can self-diagnose without opening DevTools or visiting a URL.
+  type MlDiagnostic = {
+    ok: boolean;
+    upstream_url?: string;
+    env_source?: string;
+    upstream_status?: number;
+    upstream_response?: unknown;
+    reason?: string;
+    cause_code?: string;
+    suggested_url?: { url: string; works: boolean; status?: number } | null;
+    hint?: string;
+  };
+  const [diagnostic, setDiagnostic] = useState<MlDiagnostic | null>(null);
+  const [diagnosticLoading, setDiagnosticLoading] = useState(false);
+
   // Pre-warm Modal on page load: fire-and-forget GET /api/ml-health so the
   // serverless container is already warm by the time the user uploads. Modal
   // cold start with YOLO is 20-30s; this hides it behind the upload UX.
@@ -382,14 +398,28 @@ export default function BallTrackingPage() {
 
     if (!attempt.ok) {
       const detail = attempt.upstreamUrl ? ` (upstream: ${attempt.upstreamUrl})` : "";
-      setError(
-        `${attempt.reason}${detail}. Tap Try again, or visit /api/ml-health to debug.`,
-      );
+      setError(`${attempt.reason}${detail}.`);
       // Do NOT show demo numbers - they look like real analysis and mislead users.
       // setResult(null) above ensures the cards stay hidden and the user sees only
       // the error + retry button.
+
+      // Auto-fetch the diagnostic so the user (and Abhinand) sees the actual
+      // upstream status / hint inline, without having to manually open DevTools.
+      setDiagnostic(null);
+      setDiagnosticLoading(true);
+      try {
+        const dr = await fetch("/api/ml-health", { method: "GET", cache: "no-store" });
+        const dj: MlDiagnostic = await dr.json();
+        setDiagnostic(dj);
+      } catch {
+        /* keep banner-only error if even the diagnostic call fails */
+      } finally {
+        setDiagnosticLoading(false);
+      }
       return;
     }
+    // Success path: clear any stale diagnostic
+    setDiagnostic(null);
 
     const data = attempt.data;
     const speed = (data.speed_kmh as number) || 0;
@@ -437,6 +467,8 @@ export default function BallTrackingPage() {
     setTrimStart(0);
     setTrimEnd(0);
     setDuration(0);
+    setDiagnostic(null);
+    setDiagnosticLoading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -652,6 +684,50 @@ export default function BallTrackingPage() {
                   >
                     Try again
                   </button>
+                )}
+              </div>
+            )}
+
+            {/* Inline diagnostic from /api/ml-health, shown automatically on
+                analyze failure so the user can see the actual upstream issue
+                without opening DevTools. */}
+            {(diagnosticLoading || diagnostic) && (
+              <div className="mt-3 p-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--cs-border)] text-[11px]">
+                <p className="font-semibold text-[var(--text-main)] mb-2">
+                  Diagnostic{diagnosticLoading ? " (loading...)" : ""}
+                </p>
+                {diagnostic && (
+                  <div className="space-y-1 text-[var(--text-muted)]">
+                    {diagnostic.hint && (
+                      <p className="text-[var(--text-main)] leading-relaxed mb-2">
+                        <span className="font-semibold">Hint: </span>
+                        {diagnostic.hint}
+                      </p>
+                    )}
+                    {diagnostic.suggested_url?.works && (
+                      <p className="text-[#22c55e] mb-2">
+                        Found a working URL: <code className="text-[var(--text-main)]">{diagnostic.suggested_url.url}</code>
+                      </p>
+                    )}
+                    <p>
+                      <span className="font-semibold">Upstream:</span>{" "}
+                      <code className="break-all">{diagnostic.upstream_url || "(not set)"}</code>
+                    </p>
+                    <p>
+                      <span className="font-semibold">Env source:</span> {diagnostic.env_source || "default"}
+                    </p>
+                    {diagnostic.upstream_status !== undefined && (
+                      <p>
+                        <span className="font-semibold">Upstream status:</span> {diagnostic.upstream_status}
+                      </p>
+                    )}
+                    {diagnostic.reason && (
+                      <p>
+                        <span className="font-semibold">Reason:</span> {diagnostic.reason}
+                        {diagnostic.cause_code ? ` (${diagnostic.cause_code})` : ""}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             )}
