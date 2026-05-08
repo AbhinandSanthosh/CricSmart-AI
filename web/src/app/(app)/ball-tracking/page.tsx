@@ -103,6 +103,15 @@ export default function BallTrackingPage() {
   // Anchor the result section so we can scroll into it on mobile after analyze
   const resultAnchorRef = useRef<HTMLDivElement>(null);
 
+  // Pre-warm Modal on page load: fire-and-forget GET /api/ml-health so the
+  // serverless container is already warm by the time the user uploads. Modal
+  // cold start with YOLO is 20-30s; this hides it behind the upload UX.
+  useEffect(() => {
+    fetch("/api/ml-health", { method: "GET", cache: "no-store" }).catch(() => {
+      /* ignore - cold start is fine, /analyze will do its own retry */
+    });
+  }, []);
+
   useEffect(() => {
     if (!result || !resultAnchorRef.current) return;
     const id = window.setTimeout(() => {
@@ -287,109 +296,136 @@ export default function BallTrackingPage() {
     vid.play();
   }
 
+  // Single attempt at the proxy. Returns a structured result so caller can
+  // decide whether to retry (cold-start case) or surface the error.
+  async function callAnalyzeOnce(formData: FormData): Promise<
+    | { ok: true; data: Record<string, unknown> }
+    | { ok: false; status: number; reason: string; upstreamUrl?: string; isTimeout: boolean }
+  > {
+    let res: Response;
+    try {
+      res = await fetch(ML_SERVICE_URL, {
+        method: "POST",
+        body: formData,
+        signal: AbortSignal.timeout(120000),
+      });
+    } catch (e) {
+      const isTimeout = (e as Error)?.name === "TimeoutError" || (e as Error)?.name === "AbortError";
+      return { ok: false, status: 0, reason: isTimeout ? "Request timed out" : "Network error", isTimeout };
+    }
+    if (res.ok) {
+      try {
+        const data = await res.json();
+        return { ok: true, data };
+      } catch {
+        return { ok: false, status: res.status, reason: "ML service returned non-JSON", isTimeout: false };
+      }
+    }
+    let reason = `HTTP ${res.status}`;
+    let upstreamUrl: string | undefined;
+    try {
+      const errBody = await res.json();
+      if (errBody?.error) reason = String(errBody.error);
+      if (errBody?.upstream_url) upstreamUrl = String(errBody.upstream_url);
+    } catch {
+      /* keep generic reason */
+    }
+    const isTimeout = /timed out|cold start/i.test(reason);
+    return { ok: false, status: res.status, reason, upstreamUrl, isTimeout };
+  }
+
   async function analyzeVideo() {
     if (!videoUrl) return;
     setAnalyzing(true);
     setError("");
+    setResult(null);
     setProgress(0);
 
     const interval = setInterval(() => {
       setProgress((p) => Math.min(p + 8, 90));
     }, 300);
 
-    try {
-      const fileFromInput = fileInputRef.current?.files?.[0];
-      const videoData: Blob | File | null = fileFromInput || videoBlobRef.current;
-
-      if (videoData) {
-        const formData = new FormData();
-        const isMp4 = (videoData as Blob).type?.includes("mp4");
-        const filename = fileFromInput?.name || (isMp4 ? "recording.mp4" : "recording.webm");
-        formData.append("video", videoData, filename);
-        if (trimming) {
-          formData.append("trim_start", trimStart.toFixed(2));
-          formData.append("trim_end", trimEnd.toFixed(2));
-        }
-        try {
-          const res = await fetch(ML_SERVICE_URL, { method: "POST", body: formData, signal: AbortSignal.timeout(120000) });
-          // Capture and surface the actual upstream error if non-OK so devs can
-          // tell timeouts / wrong env vars / Modal cold-start apart.
-          if (!res.ok) {
-            try {
-              const errBody = await res.json();
-              const reason = errBody?.error || `HTTP ${res.status}`;
-              const detail =
-                errBody?.upstream_url ? ` (upstream: ${errBody.upstream_url})` : "";
-              setError(`${reason}${detail} - showing demo results.`);
-            } catch {
-              setError(`ML service returned HTTP ${res.status} - showing demo results.`);
-            }
-          }
-
-          if (res.ok) {
-            const data = await res.json();
-            clearInterval(interval);
-            setProgress(100);
-            // Resolve length across every historical response shape we've
-            // ever shipped (length_label / shot_type / bounce_text / bounce_point).
-            // If nothing matches but speed is real, fall back to "Good Length"
-            // so users always see useful copy instead of blank dashes.
-            const speed = data.speed_kmh || 0;
-            let lenLabel = deriveLengthLabel(data);
-            if (!lenLabel && speed > 0) {
-              lenLabel = "Good Length";
-              console.info(
-                "[ball-tracking] Backend didn't return a length label; defaulting to Good Length. " +
-                "Redeploy the ML service to get accurate length detection."
-              );
-            }
-            const shotAdvice: string =
-              (typeof data.shot_advice === "string" && data.shot_advice) ||
-              SHOT_ADVICE[lenLabel] ||
-              "";
-            const lengthDesc: string =
-              (typeof data.length_desc === "string" && data.length_desc) ||
-              LENGTH_DESC[lenLabel] ||
-              "";
-            const shotDesc: string =
-              (typeof data.shot_desc === "string" && data.shot_desc) ||
-              SHOT_DESC[lenLabel] ||
-              "";
-            setResult({
-              speed,
-              hitStumps: !!data.hit_stumps,
-              verdict: data.verdict || (data.hit_stumps ? "Wicket hitting" : "Wicket missing"),
-              lengthLabel: lenLabel,
-              lengthDesc,
-              shotAdvice,
-              shotDesc,
-              errorNote: data.error || undefined,
-            });
-            setAnalyzing(false);
-            return;
-          }
-        } catch { /* ML service not running */ }
-      }
-
+    const fileFromInput = fileInputRef.current?.files?.[0];
+    const videoData: Blob | File | null = fileFromInput || videoBlobRef.current;
+    if (!videoData) {
       clearInterval(interval);
-      setProgress(100);
-      await new Promise((r) => setTimeout(r, 500));
-      setResult({
-        speed: 128,
-        hitStumps: false,
-        verdict: "Wicket missing",
-        lengthLabel: "Good Length",
-        lengthDesc: "4-7m from stumps",
-        shotAdvice: "Defend or leave",
-        shotDesc: "Soft hands, straight bat",
-      });
-      // Don't overwrite a more specific message we already set in the !res.ok path.
-      setError((prev) => prev || "Couldn't reach ML service - showing demo results. Visit /api/ml-health to debug.");
-    } catch {
-      setError("Analysis failed. Please try again.");
-    } finally {
       setAnalyzing(false);
+      setError("No video to analyze. Upload or record a clip first.");
+      return;
     }
+
+    const buildFormData = () => {
+      const fd = new FormData();
+      const isMp4 = (videoData as Blob).type?.includes("mp4");
+      const filename = fileFromInput?.name || (isMp4 ? "recording.mp4" : "recording.webm");
+      fd.append("video", videoData, filename);
+      if (trimming) {
+        fd.append("trim_start", trimStart.toFixed(2));
+        fd.append("trim_end", trimEnd.toFixed(2));
+      }
+      return fd;
+    };
+
+    // First attempt
+    let attempt = await callAnalyzeOnce(buildFormData());
+
+    // Auto-retry once if the failure looks like a cold-start timeout. Modal
+    // warms up on the first hit, so the second attempt usually succeeds.
+    if (!attempt.ok && attempt.isTimeout) {
+      setError("Warming up the analysis service. One moment...");
+      attempt = await callAnalyzeOnce(buildFormData());
+    }
+
+    clearInterval(interval);
+    setProgress(100);
+    setAnalyzing(false);
+
+    if (!attempt.ok) {
+      const detail = attempt.upstreamUrl ? ` (upstream: ${attempt.upstreamUrl})` : "";
+      setError(
+        `${attempt.reason}${detail}. Tap Try again, or visit /api/ml-health to debug.`,
+      );
+      // Do NOT show demo numbers - they look like real analysis and mislead users.
+      // setResult(null) above ensures the cards stay hidden and the user sees only
+      // the error + retry button.
+      return;
+    }
+
+    const data = attempt.data;
+    const speed = (data.speed_kmh as number) || 0;
+    let lenLabel = deriveLengthLabel(data);
+    if (!lenLabel && speed > 0) {
+      lenLabel = "Good Length";
+      console.info(
+        "[ball-tracking] Backend didn't return a length label; defaulting to Good Length. " +
+          "Redeploy the ML service to get accurate length detection.",
+      );
+    }
+    const shotAdvice =
+      (typeof data.shot_advice === "string" && data.shot_advice) ||
+      SHOT_ADVICE[lenLabel] ||
+      "";
+    const lengthDesc =
+      (typeof data.length_desc === "string" && data.length_desc) ||
+      LENGTH_DESC[lenLabel] ||
+      "";
+    const shotDesc =
+      (typeof data.shot_desc === "string" && data.shot_desc) ||
+      SHOT_DESC[lenLabel] ||
+      "";
+    setError("");
+    setResult({
+      speed,
+      hitStumps: !!data.hit_stumps,
+      verdict:
+        (typeof data.verdict === "string" && data.verdict) ||
+        (data.hit_stumps ? "Wicket hitting" : "Wicket missing"),
+      lengthLabel: lenLabel,
+      lengthDesc,
+      shotAdvice,
+      shotDesc,
+      errorNote: typeof data.error === "string" ? data.error : undefined,
+    });
   }
 
   function reset() {
@@ -607,7 +643,17 @@ export default function BallTrackingPage() {
               </div>
             )}
             {error && (
-              <div className="mt-4 text-xs text-[var(--cs-accent)] bg-[var(--cs-accent-light)] p-3 rounded-xl">{error}</div>
+              <div className="mt-4 flex items-start justify-between gap-3 text-xs text-[var(--cs-accent)] bg-[var(--cs-accent-light)] p-3 rounded-xl">
+                <span className="flex-1 break-words">{error}</span>
+                {!analyzing && !result && (
+                  <button
+                    onClick={analyzeVideo}
+                    className="btn btn-primary px-3 py-1 text-[11px] shrink-0"
+                  >
+                    Try again
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
