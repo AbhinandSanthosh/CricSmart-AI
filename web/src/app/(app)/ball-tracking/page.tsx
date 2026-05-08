@@ -312,6 +312,20 @@ export default function BallTrackingPage() {
         }
         try {
           const res = await fetch(ML_SERVICE_URL, { method: "POST", body: formData, signal: AbortSignal.timeout(120000) });
+          // Capture and surface the actual upstream error if non-OK so devs can
+          // tell timeouts / wrong env vars / Modal cold-start apart.
+          if (!res.ok) {
+            try {
+              const errBody = await res.json();
+              const reason = errBody?.error || `HTTP ${res.status}`;
+              const detail =
+                errBody?.upstream_url ? ` (upstream: ${errBody.upstream_url})` : "";
+              setError(`${reason}${detail} - showing demo results.`);
+            } catch {
+              setError(`ML service returned HTTP ${res.status} - showing demo results.`);
+            }
+          }
+
           if (res.ok) {
             const data = await res.json();
             clearInterval(interval);
@@ -369,7 +383,8 @@ export default function BallTrackingPage() {
         shotAdvice: "Defend or leave",
         shotDesc: "Soft hands, straight bat",
       });
-      setError("ML service not available - showing demo results.");
+      // Don't overwrite a more specific message we already set in the !res.ok path.
+      setError((prev) => prev || "Couldn't reach ML service - showing demo results. Visit /api/ml-health to debug.");
     } catch {
       setError("Analysis failed. Please try again.");
     } finally {
